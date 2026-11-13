@@ -1,24 +1,40 @@
-直接在 main 上写代码就没有 PR，Copilot 也就没机会审查。所以整个流程的关键，是把每个功能都放进分支，再通过 PR 合并。
-一、开局（只做一次）
-在 GitHub 新建私有仓库，比如 guqin-practice。
-在仓库的 Settings → Rules → Rulesets 给 main 加一条规则：必须通过 PR 才能合并；勾上自动请求 Copilot 审查；有测试后再要求检查通过。你一个人开发，审批人数设为 0，因为自己不能批准自己的 PR。
-在 Antigravity 里克隆这个仓库，以后都在这份本地副本上工作。
-二、方案阶段（Claude 和 ChatGPT）
-让它们帮你写需求文档 docs/PRD.md，再写技术方案 docs/design.md，内容包括平台（手机 App 还是网页）、听音识别方案和减字谱的数据格式。
-可以让一个出方案、另一个挑毛病，定稿后提交进仓库。这样 Antigravity 写代码时能直接读到，以后对照起来也方便。
-按功能把工作拆成 GitHub Issues，一个 Issue 对应一个能独立完成的小功能。
-三、每个功能的循环
-从 main 开一个新分支，比如 feat/pitch-detect。
-在 Antigravity 里让它按对应的 Issue 和 docs/ 写代码，并在本地跑通。
-推送分支，开 PR，在描述里写上 Closes #3，合并后对应的 Issue 会自动关闭。
-Copilot 自动审查，问题会以评论的形式出现在 PR 上。
-把这些评论交给 Antigravity 修改，再推送；可以重新请求 Copilot 看一遍。
-没有问题后用 Squash merge 合进 main，删掉分支，再开始下一个功能。
-四、自动检查（建议尽早加）
-用 GitHub Actions 在每个 PR 上自动跑测试和代码规范检查。Copilot 的审查是看代码逻辑，测试能抓到真正跑不通的地方，两样互补。
-五、古琴陪练建议的开发顺序
-先做减字谱的显示，并把谱子存成结构化数据（每个音的弦、徽位、指法和音高）。
-再做听音识别，能实时判断你弹出的是哪个音。
-然后做谱面跟随，把听到的音和谱子对齐，让光标跟着走。这是最难的一步：古琴有泛音、按音和滑音，识别不能只看音高，先从散音和按音做起。
-最后再加节奏统计、练习记录这类功能。
-每完成一个能用的阶段就打一个版本号，比如 v0.1，并在 GitHub 上发一个 Release，方便以后回退。
+# 古琴陪练
+
+私有仓库：<https://github.com/softkk126forliu/guqin-practice>
+
+## 本地目录
+
+Git 根目录是 `D:\Works\古琴陪练`。源码和重要文件都在 `program/`。
+
+Antigravity 工作区 `古琴陪练.code-workspace` 会打开 `program/`，以及旁边的 `DeepGuqin-Antigravity-Project`。后者是单独的文件夹，不属于这个 Git 仓库。
+
+## 只留在笔记本上
+
+生成结果和工具输出已写入 `.gitignore`，只留在本机：
+
+- `program/.agents/`
+- `program/crops/`
+- `program/out_daoyi/`
+- `program/out_daoyi_final/`
+- `program/out_daoyi_p7/`
+- `program/slices_chunfeng/`
+- `program/slices_daoyi_p6/`
+- `program/slices_daoyi_p7/`
+
+## 怎么提交
+
+不要直接推 `main`，也不要用 Antigravity 的 “Publish to GitHub” 发到 `main`。每次改动都走：功能分支 → Pull Request → 合并。
+
+当前套餐下，这个私有仓库不会强制 Repository Rulesets，GitHub 不会拦住直接推 `main`。不需要 GitHub Pro。按下面的步骤做，靠习惯。
+
+Automatic Copilot code review 先不开。审查在 PR 里手动添加 Copilot。
+
+## 每个功能
+
+1. 从 `main` 开分支，例如 `feat/pitch-detect`。
+2. 在 Antigravity 里实现，并在本地跑通。
+3. 推送分支，开 PR。若这个 PR 会关掉某个 Issue，描述里写 `Closes #N`。
+4. 在 PR 右侧 **Reviewers** 里手动添加 **Copilot**，点 **Request**。不要靠 Automatic Copilot code review。
+5. 等 Copilot 的评论。
+6. 把评论交给 Antigravity 修改，再推送。还要再审一次的话，点 Copilot 旁边的重新请求按钮。
+7. 看起来没问题后，**Squash and merge** 进 `main`，并删除该分支。
