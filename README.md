@@ -2,6 +2,15 @@
 
 私有仓库：<https://github.com/softkk126forliu/guqin-practice>
 
+## 这个项目是什么
+
+琴韵 DeepGuqin —— 古琴跟谱软件，个人练琴用。
+
+减字谱翻页找位置太难：练琴中途离开一会儿，回来常常找不到刚才弹到哪个音。本软件用麦克风听你弹奏，光标实时跟着走——你停，光标就停；回来一眼就知道停在哪个音。v1 只判断"弹到哪了"，不判断"弹得准不准"，音准判定留到 v2+。
+
+- 形态：HTML 单页，浏览器可直接使用；外层套 Capacitor 得到 iOS / Android App
+- 产品定位、原型与开发计划：见本地 `DeepGuqin-Antigravity-Project` 工程的 README（该工程暂未纳入本仓库）
+
 ## 本地目录
 
 Git 根目录是 `D:\Works\古琴陪练`。源码和重要文件都在 `program/`。
