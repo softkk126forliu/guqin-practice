@@ -1,12 +1,15 @@
 # Generated and tool output — keep locally, do not upload
 program/.agents/
 program/crops/
-program/out_daoyi/
-program/out_daoyi_final/
-program/out_daoyi_p7/
 program/slices_chunfeng/
 program/slices_daoyi_p6/
 program/slices_daoyi_p7/
+program/out_daoyi/
+program/out_daoyi_final/
+program/out_daoyi_p7/
+program/捣衣/out_daoyi/
+program/捣衣/out_daoyi_final/
+program/捣衣/out_daoyi_p7/
 
 Thumbs.db
 Desktop.ini
