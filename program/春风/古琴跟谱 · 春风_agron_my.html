@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>古琴跟谱 · 春风 (Agron Custom)</title>
+<title>古琴跟谱 · 春风（第一页）</title>
 <style>
 :root {
   --desk: #e6e0d2;
@@ -156,7 +156,7 @@ button.pri { background: var(--acc); color: #fff; border-color: var(--acc); font
 button.pri:hover { filter: brightness(1.08); }
 button.ok { background: var(--ok); color: #fff; border-color: var(--ok); font-weight: 600; }
 
-/* 领奏超清放大窗 (HUD + 2400px 1:1 局部放大) */
+/* 领奏超清放大窗 (HUD + 2800px 1:1 局部放大) */
 #hud {
   display: none;
   background: var(--paper);
@@ -297,21 +297,6 @@ button.ok { background: var(--ok); color: #fff; border-color: var(--ok); font-we
   box-shadow: 0 0 0 2px var(--acc), 0 0 14px 2px var(--acc-glow);
   z-index: 3;
 }
-/* 仅长音 (d > 1 拍) 显示醒目绿色拍内进度条 */
-.mk.cur::after { display: none; }
-.mk.cur.long::after {
-  content: "";
-  display: block;
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 5px;
-  width: var(--prog, 0%);
-  background: linear-gradient(90deg, #00c853, #00e676);
-  box-shadow: 0 0 8px rgba(0, 200, 83, 0.65);
-  border-radius: 0 0 5px 5px;
-  transition: width 0.05s linear;
-}
 .mk.warn {
   box-shadow: none;
 }
@@ -362,7 +347,7 @@ nav.botbar button {
   height: 10px;
   border-radius: 50%;
   background: rgba(255,255,255,0.18);
-   display: inline-block;
+  display: inline-block;
   margin-right: 5px;
   transition: transform 0.08s, background 0.08s;
 }
@@ -420,13 +405,13 @@ dialog textarea {
 
 <div class="topbar">
   <div class="brand">
-    <b>青城山下白素贞</b>
-    <span>1=C · 正调 1 2 4 5 6 1 2</span>
+    <b>春风（第一页）</b>
+    <span>许国华、龚一 曲 · 1 = ♭B 紧五弦定弦（2 3 5 6 1 2 3） · 2800px 无损矢量级超清修复版</span>
   </div>
 
   <div class="status-pill">
     <div class="status-main">
-      <div id="posText">第 1 / 173 音 · 第 1 排</div>
+      <div id="posText">第 1 音 · 第 1 排</div>
       <div id="posSub">点谱任意音可直接定位 · 命中 <b class="hit" id="hitCnt">0</b> · 待校准 <b class="miss" id="missCnt">0</b></div>
     </div>
     <div class="mic-box">
@@ -461,8 +446,8 @@ dialog textarea {
   <div class="hud-card">
     <div class="hud-jp" id="hudJp">0</div>
     <div class="hud-meta">
-      <div><b id="hudPitch">休止符</b> · <span id="hudTech">泛音段</span></div>
-      <div id="hudDur">时值 ½ 拍 · 第 1 排第 1 音</div>
+      <div><b id="hudPitch">休止符</b> · <span id="hudTech">散按段</span></div>
+      <div id="hudDur">时值 1 拍 · 第 1 排第 1 音</div>
     </div>
   </div>
   <canvas id="lensCanvas"></canvas>
@@ -516,7 +501,7 @@ const DUR = CELLS.map(c => c.d);
 
 const fmtDur = x => ({0.25:"¼", 0.5:"½", 0.75:"¾", 1:"1", 1.5:"1½", 2:"2", 3:"3"})[x] || String(x);
 
-/* ---------- 1. 构建 2400px 无损超清谱面与音位框 ---------- */
+/* ---------- 1. 构建 2800px 无损超清谱面与音位框 ---------- */
 const paper = $("#paper");
 const rowEls = [], rowLabelEls = [], rowImgs = [], mkEls = [];
 
@@ -530,7 +515,8 @@ IMGS.forEach((b64, ri) => {
   rw.className = "rw";
   const im = new Image();
   im.decoding = "async";
-  im.src = "data:image/png;base64," + b64;
+  const mime = b64.startsWith("iVBOR") ? "image/png" : "image/jpeg";
+  im.src = `data:${mime};base64,` + b64;
   im.onload = () => { if (CELLS[idx] && CELLS[idx].r === ri) drawLens(); };
   rw.appendChild(im);
   paper.appendChild(rw);
@@ -621,7 +607,7 @@ function drawLens() {
   }
   $("#hudDur").textContent = `时值 ${fmtDur(DUR[Math.min(idx, CELLS.length - 1)])} 拍 · 第 ${c.r + 1} 排第 ${c.ni + 1} 音`;
 
-  // 绘制右侧 2400px 原图局部放大镜
+  // 绘制右侧 2800px 原图局部放大镜
   const cv = $("#lensCanvas");
   const im = rowImgs[c.r];
   if (!im || !im.complete || !im.naturalWidth) return;
@@ -652,29 +638,26 @@ function drawLens() {
   g.drawImage(im, x0, 0, viewW, srcH, 0, dy, cv.width, dh);
   g.restore();
 
-  // 画当前音与前后音参考框
+  // 仅画当前音高亮框（不画邻音干扰框）
   CELLS.forEach((cell, k) => {
-    if (cell.r !== c.r) return;
+    if (cell.r !== c.r || k !== idx) return;
     const rx = (cell.x / 100 * srcW - x0) * scale;
     const rw = (cell.w / 100 * srcW) * scale;
     if (rx + rw < 0 || rx > cv.width) return;
-    const ry = dy + srcH * 0.03 * scale;
-    const rh = srcH * 0.94 * scale;
-    if (k === idx) {
-      g.fillStyle = "rgba(184, 55, 40, 0.15)";
-      g.fillRect(rx, ry, rw, rh);
-      g.strokeStyle = "#b83728";
-      g.lineWidth = 2.2 * dp;
-      g.strokeRect(rx, ry, rw, rh);
-    }
+    const ry = dy + srcH * 0.02 * scale;
+    const rh = srcH * 0.96 * scale;
+    g.fillStyle = "rgba(184, 55, 40, 0.15)";
+    g.fillRect(rx, ry, rw, rh);
+    g.strokeStyle = "#b83728";
+    g.lineWidth = 2.2 * dp;
+    g.strokeRect(rx, ry, rw, rh);
   });
 }
 
 function updateUI(scroll = true) {
   const safeIdx = Math.min(idx, CELLS.length - 1);
   mkEls.forEach((el, k) => {
-    el.className = "mk" + (k < idx ? " done" : k === idx ? " cur" : "") + (DUR[k] > 1 ? " long" : "") + (warnSet.has(k) ? " warn" : "");
-    if (k !== idx) el.style.setProperty("--prog", "0%");
+    el.className = "mk" + (k < idx ? " done" : k === idx ? " cur" : "") + (warnSet.has(k) ? " warn" : "");
   });
   if (idx < CELLS.length) {
     const c = CELLS[idx];
@@ -749,7 +732,6 @@ function buildKSBuffer(midi, isHarm) {
   const key = midi + (isHarm ? "_H" : "_S");
   if (ksCache[key]) return ksCache[key];
   const a = ensureAudio(), fs = a.sampleRate;
-  // 泛音高八度清亮共鸣
   const effMidi = isHarm ? Math.min(79, midi + 12) : midi;
   const f = 440 * Math.pow(2, (effMidi - 69) / 12);
   const dur = isHarm ? 4.8 : (effMidi < 48 ? 6.8 : 5.4);
@@ -798,7 +780,7 @@ function buildKSBuffer(midi, isHarm) {
   return (ksCache[key] = buf);
 }
 
-let activeSrcs = [], activeTimers = [], progRaf = 0;
+let activeSrcs = [], activeTimers = [];
 let playing = false;
 
 function pluckNote(midi, isHarm, when, gainVal) {
@@ -843,7 +825,7 @@ function previewCell(i) {
   MIDI[i].forEach((m, k) => pluckNote(m, !!c.harm, a.currentTime + 0.01, k ? 0.72 : 0.95));
 }
 
-/* ---------- 5. 模拟弹奏（音频时钟精确排程 + 音内进度条动画） ---------- */
+/* ---------- 5. 模拟弹奏（音频时钟精确排程） ---------- */
 function buildTimeline() {
   const spd = +$("#spd").value / 100;
   const T = [], D_MS = [], clicks = [];
@@ -866,14 +848,12 @@ function buildTimeline() {
 
 function simStop() {
   playing = false;
-  cancelAnimationFrame(progRaf);
   activeSrcs.forEach(s => { try { s.stop(); } catch (e) {} });
   activeSrcs = [];
   activeTimers.forEach(clearTimeout);
   activeTimers = [];
   $("#playBtn").textContent = "▶ 模拟弹奏 (Space)";
   $("#immPlayBtn").textContent = "▶ 弹奏";
-  if (mkEls[idx]) mkEls[idx].style.setProperty("--prog", "0%");
 }
 
 function simStart() {
@@ -884,7 +864,7 @@ function simStart() {
   $("#playBtn").textContent = "⏸ 暂停 (Space)";
   $("#immPlayBtn").textContent = "⏸ 暂停";
 
-  const { T, D_MS, clicks, end } = buildTimeline();
+  const { T, clicks, end } = buildTimeline();
   const s = idx, t0 = a.currentTime + 0.12, base = T[s];
 
   CELLS.forEach((c, i) => {
@@ -901,17 +881,6 @@ function simStart() {
       if (t >= base - 1e-6) scheduleClick(t0 + (t - base) / 1000);
     });
   }
-
-  function animProg() {
-    if (!playing) return;
-    const elapsedMs = (a.currentTime - t0) * 1000 + base;
-    if (idx < CELLS.length && mkEls[idx]) {
-      const p = Math.max(0, Math.min(100, ((elapsedMs - T[idx]) / (D_MS[idx] || 1)) * 100));
-      mkEls[idx].style.setProperty("--prog", p.toFixed(1) + "%");
-    }
-    progRaf = requestAnimationFrame(animProg);
-  }
-  progRaf = requestAnimationFrame(animProg);
 
   activeTimers.push(setTimeout(() => {
     simStop();
@@ -1003,7 +972,6 @@ function stopMic() {
   $("#immMicBtn").textContent = "🎤 听音";
   $("#hearText").textContent = "麦克风未开启";
   $("#meterBar").style.width = "0%";
-  if (mkEls[idx]) mkEls[idx].style.setProperty("--prog", "0%");
 }
 
 function advanceTo(newIdx) {
@@ -1032,13 +1000,8 @@ function micTick() {
   const expectedMs = DUR[idx] * (60000 / (BPM[cur.r] * spd));
   const isSmart = $("#followMode").value === "smart";
 
-  // 智能伴随模式下的拍内进度显示与惯性推进
   if (isSmart && smartStarted && idx < CELLS.length) {
     const elapsed = now - noteEnterTime;
-    if (mkEls[idx]) {
-      mkEls[idx].style.setProperty("--prog", Math.min(100, (elapsed / expectedMs) * 100).toFixed(1) + "%");
-    }
-    // 若最近 2.5 秒内有琴声，且当前音已到时值并检测到新拨弦起音（哪怕泛音基频较弱），平滑推进到下一音
     if (elapsed >= expectedMs * 0.92 && (now - onsetTime < 280 || (now - lastSoundTime < 1800 && elapsed >= expectedMs * 1.35))) {
       hit++;
       onsetTime = 0;

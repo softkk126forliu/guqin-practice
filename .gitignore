@@ -1,12 +1,14 @@
 # Generated and tool output — keep locally, do not upload
 program/.agents/
-program/捣衣/out_daoyi_final/
 
-# 青城山下白素贞：书页源照片与成品已纳入版本管理（私有仓库），
-# 仅排除生成过程中产生的临时切图与校对图
-program/青城山下白素贞/out/
-program/青城山下白素贞/out_*/
+# 模板/ 与 春风/ 的产出物纳入版本管理：
+#   模板/   —— 书页原图、spec、两份定稿模板 HTML
+#   春风/   —— spec、行图、标尺图、成品 HTML
+#   模板/out/ 为生成过程中的临时切图，不入库
+program/模板/out/
 
 Thumbs.db
 Desktop.ini
 .DS_Store
+__pycache__/
+*.pyc
