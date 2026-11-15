@@ -351,20 +351,37 @@ def outdir(spec):
 
 
 def cmd_rows(spec):
-    im = open_photo(spec)
-    d = ImageDraw.Draw(im)
-    w, h = im.size
+    """在原图上画出每一排的裁切框 -> out/rows_preview.jpg。
+    spec 支持逐排指定 photo（跨多张书页照片时），此时按原图分组分别生成预览。"""
+    groups = {}
     for i, r in enumerate(spec["rows"]):
         if "box" not in r:
             continue
-        b = r["box"]
-        xy = [b[0] * w, b[1] * h, b[2] * w, b[3] * h]
-        d.rectangle(xy, outline=(255, 0, 0), width=max(3, w // 400))
-        d.text((xy[0] + 6, xy[1] + 4), f"row {i+1}", fill=(255, 0, 0))
-    im.thumbnail((1800, 1800))
-    p = os.path.join(outdir(spec), "rows_preview.jpg")
-    im.save(p, quality=88)
-    print(p)
+        name = r.get("photo") or spec.get("photo")
+        if not name:
+            continue
+        groups.setdefault(name, []).append((i, r))
+
+    outs = []
+    for name, items in groups.items():
+        s = dict(spec)
+        s["photo"] = name
+        im = open_photo(s)
+        d = ImageDraw.Draw(im)
+        w, h = im.size
+        for i, r in items:
+            b = r["box"]
+            xy = [b[0] * w, b[1] * h, b[2] * w, b[3] * h]
+            d.rectangle(xy, outline=(255, 0, 0), width=max(3, w // 400))
+            d.text((xy[0] + 6, xy[1] + 4), f"row {i+1}", fill=(255, 0, 0))
+        im.thumbnail((1800, 1800))
+        stem = os.path.splitext(os.path.basename(name))[0]
+        p = os.path.join(outdir(spec), f"rows_preview_{stem}.jpg" if len(groups) > 1 else "rows_preview.jpg")
+        im.save(p, quality=88)
+        print(p)
+        outs.append(p)
+    if not outs:
+        print("没有可预览的排（spec 需提供 box 与 photo）")
 
 
 def cmd_clean(spec):
@@ -430,18 +447,26 @@ def cmd_peaks(spec, only=None):
 
 
 def parse_note_p(n):
-    """兼容 p: ['6','3'] 或 p: '6/3' 或 rest: true / p: '0'。"""
+    """兼容 p: ['6','3'] 或 p: '6/3' 或 rest: true / p: '0'。
+    有显式 pc（音高）但没有 p（简谱数字）的音符仍算可弹奏音，不是休止符；
+    但 p 显式写成 '0' / '-' 表示简谱休止，仍按休止符处理。"""
     if n.get("rest"):
         return [], True
     raw = n.get("p", [])
     if isinstance(raw, str):
         raw = raw.strip()
-        if raw in ("0", "-", ""):
-            return [], True
+        if raw in ("0", "-"):
+            return [], True          # 简谱明确写 0/- 表示休止
+        if raw == "":
+            # p 为空但给了 pc：音高明确，视为可弹奏音
+            return [], False
         return [x.strip() for x in raw.split("/") if x.strip()], False
     p_list = [str(x).strip() for x in raw if str(x).strip()]
-    if not p_list or p_list == ["0"]:
-        return [], True
+    if p_list == ["0"]:
+        return [], True              # 简谱明确写 0 表示休止
+    if not p_list:
+        # p 缺省：pc 存在则视为可弹奏音
+        return [], False
     return p_list, False
 
 
@@ -462,8 +487,14 @@ def build_cells_and_rows(spec, ims):
         for ni, n in enumerate(r_notes):
             p_strs, is_rest = parse_note_p(n)
             rest = 1 if is_rest else 0
-            pcs = [] if rest else (n["pc"] if "pc" in n else [digit_pc(t, tonic) for t in p_strs])
-            default_w = 3.80 if len(p_strs) >= 2 else CELL_W
+            if rest:
+                pcs = []
+            elif "pc" in n:
+                pcs = n["pc"]
+            else:
+                pcs = [digit_pc(t, tonic) for t in p_strs]
+            # 有 pc 无 p 的音也算双音结构宽度的一半；没有音高信息时退回单音宽度
+            default_w = 3.80 if (len(p_strs) >= 2 or len(pcs) >= 2) else CELL_W
             w = round(float(n.get("w", default_w)), 2)
             x = round(float(n["x"]), 2)
             harm = 1 if (not rest and n.get("harm", row_harm)) else 0
