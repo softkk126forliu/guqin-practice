@@ -1,18 +1,11 @@
 # Generated and tool output — keep locally, do not upload
 program/.agents/
-program/crops/
-program/slices_chunfeng/
-program/slices_daoyi_p6/
-program/slices_daoyi_p7/
-program/out_daoyi/
-program/out_daoyi_final/
-program/out_daoyi_p7/
-program/捣衣/out_daoyi/
 program/捣衣/out_daoyi_final/
-program/捣衣/out_daoyi_p7/
 
-# 青城山下白素贞：国琴网书页照片源材料，不公开分享
-program/青城山下白素贞/
+# 青城山下白素贞：书页源照片与成品已纳入版本管理（私有仓库），
+# 仅排除生成过程中产生的临时切图与校对图
+program/青城山下白素贞/out/
+program/青城山下白素贞/out_*/
 
 Thumbs.db
 Desktop.ini
