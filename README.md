@@ -19,16 +19,12 @@ Antigravity 工作区 `古琴陪练.code-workspace` 会打开 `program/`，以�
 
 ## 只留在笔记本上
 
-生成结果和工具输出已写入 `.gitignore`，只留在本机：
+生成过程中的临时文件已写入 `.gitignore`，只留在本机：
 
-- `program/.agents/`
-- `program/crops/`
-- `program/out_daoyi/`
-- `program/out_daoyi_final/`
-- `program/out_daoyi_p7/`
-- `program/slices_chunfeng/`
-- `program/slices_daoyi_p6/`
-- `program/slices_daoyi_p7/`
+- `program/模板/out/`（build 过程的临时切图）
+- Python 缓存（`__pycache__/`、`.pyc`）
+
+其余产出物——书页原图、JSON spec、行图、标尺图、跟谱页 HTML，以及生成它们的 skill——都已纳入版本管理，换机后可完整复现。
 
 ## 怎么提交
 
