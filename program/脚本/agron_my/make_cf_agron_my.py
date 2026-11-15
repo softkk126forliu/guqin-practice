@@ -13,46 +13,13 @@ CF_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "春风"))
 OUT_DIR = os.path.join(CF_DIR, "out_cf_agron_my")
 PNG_DIR = os.path.join(OUT_DIR, "my_cf_rows")
 
-from make_baisuzhen_agron_my import html_template as html_tpl
+from make_baisuzhen_agron_my import load_template, fill_template
 
-# Customize HTML header, title, and remove .mk.done shadow
-html_tpl = (html_tpl
-    .replace(
-        "<title>古琴跟谱 · 青城山下白素贞 (Agron Custom)</title>",
-        "<title>古琴跟谱 · 春风 (Agron Custom)</title>"
-    )
-    .replace(
-        "<h1>青城山下白素贞</h1>",
-        "<h1>春风（第一页）</h1>"
-    )
-    .replace(
-        "<p>1 = C 正调定弦（一至七弦：1 2 4 5 6 1 2） · 2/4 拍 · 2800px 无损矢量级超清修复版</p>",
-        "<p>许国华、龚一 曲 · 1 = ♭B 紧五弦定弦（2 3 5 6 1 2 3） · 2800px 无损矢量级超清修复版</p>"
-    )
-    .replace(
-        'const NM = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];',
-        'const NM = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];'
-    )
-    .replace(
-        'const fmtDur = x => ({0.25:"¼", 0.5:"½", 0.75:"¾", 1:"1", 1.5:"1½", 2:"2"})[x] || String(x);',
-        'const fmtDur = x => ({0.25:"¼", 0.5:"½", 0.75:"¾", 1:"1", 1.5:"1½", 2:"2", 3:"3"})[x] || String(x);'
-    )
-    .replace(
-        "  top: 3%;\n  height: 94%;",
-        "  top: 1.5%;\n  height: 97%;"
-    )
-    .replace(
-        ".mk.done {\n  background: rgba(160, 152, 136, 0.10);\n}",
-        ".mk.done {\n  background: transparent;\n}"
-    )
-    .replace(
-        "    refreshLabels();\n    drawLens();",
-        "    refreshLabels();\n    updateUI(false);"
-    )
-    .replace(
-        "    } else {\n      g.strokeStyle = isDark ? \"rgba(255,255,255,0.12)\" : \"rgba(0,0,0,0.10)\";\n      g.lineWidth = 1 * dp;\n      g.strokeRect(rx, ry, rw, rh);\n    }",
-        "    }"
-    )
+html_tpl = fill_template(
+    load_template(),
+    title="春风（第一页）",
+    subtitle="许国华、龚一 曲 · 1 = ♭B 紧五弦定弦（2 3 5 6 1 2 3） · 2800px 无损矢量级超清修复版",
+    nm=["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"],
 )
 
 SCALE_bB = {"1": 10, "2": 0, "3": 2, "4": 3, "5": 5, "6": 7, "7": 9}
