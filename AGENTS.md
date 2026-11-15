@@ -53,14 +53,16 @@
   AGENTS.md
   CLAUDE.md
   program/
-    .agents/               生成跟谱页的 skill（整个目录目前 gitignore，只留本地）
+    .agents/               生成跟谱页的 skill（已纳入版本管理）
       skills/guqin-score-page/
         SKILL.md
         scripts/guqin_page.py
         templates/page.template.html
-    捣衣/                  《捣衣》的独立页面、书页照片、JSON spec、切片输出
-    春风/                  《春风》的独立页面与书页照片
-    脚本/                  过程脚本（切片清理、书页转谱）
+    模板/                  《青城山下白素贞》的书页原图、JSON spec、两份定稿模板 HTML
+    春风/                  《春风》的书页照片、JSON spec、过程切图与成品 HTML
+    脚本/                  过程脚本
+      agron_my/            当前版本（2800px SDF 无损版）的生成脚本
+      sonnet/              旧版本脚本，保留作对照
     文档/                  方案与说明文档
 ```
 
@@ -72,40 +74,44 @@
 
 用它配套的 `scripts/guqin_page.py` 和 `templates/page.template.html`。不要绕过这个 skill 另起一套生成流程，除非用户明确要求。
 
-## 现有页面变体（尚未选定最终方案）
+## 现有跟谱页
 
-《捣衣》（`捣衣/`）：
+《青城山下白素贞》（`模板/`）：
 
-- `古琴跟谱 · 捣衣.html`
-- `古琴跟谱 · 捣衣_hydrogen4.html`
-- `古琴跟谱 · 捣衣_hydrogen4_noskill.html`
+- `agron模板 · 青城山下白素贞.html` —— 当前版本（2800px SDF 无损版）
+- `sonnet模板 · 青城山下白素贞.html` —— 旧版本（1328px），保留作对照
 
 《春风》（`春风/`）：
 
-- `古琴跟谱 · 春风（书页照片）.html`
-- `古琴跟谱 · 春风_hydrogen4_noskill.html`
+- `古琴跟谱 · 春风_agron_my.html` —— 当前版本
 
 预览：用系统浏览器直接打开对应 HTML（双击或把文件拖进浏览器即可）。
 
 ## 中间产物与过程脚本
 
-`捣衣/` 下的 `out_daoyi/`、`out_daoyi_p7/`、`out_daoyi_final/` 以及 `daoyi-spec.json`、`daoyi-p6-spec.json`、`daoyi-p7-spec.json`，是生成跟谱页时的中间切图和规格说明。独立页面已经内嵌日常使用所需的切图和逻辑；只预览或改交互时，不必重新跑生成流程。这些 `out_*` 目录已 gitignore，只留在本地。
+`模板/baisuzhen-spec.json` 与 `春风/chunfeng-p1-spec.json` 记录每排的裁切框 `box`、逐音的 `x`（左边缘百分比）、`w`（宽度百分比）、`d`（时值）等规格。想微调某个音的位置或宽度，改 spec 后重跑 `guqin_page.py build` 即可重新生成 HTML。
 
-`脚本/` 里现有：
+`模板/` 的 build 在内存中完成重建，不产生过程切图；`春风/out_cf_agron_my/` 下的 2800px 行图与标尺图是校准和微调用，需保留。
 
-- `build_clean_crops.py`：从书页切片生成清理后的切图
-- `transcribe_sheet.py`、`guqin_transcriber_v2.py`：从书页照片做转谱/识别，产出 JSON
+`脚本/agron_my/` 里现有：
 
-文件整理进 `捣衣/`、`春风/`、`脚本/` 之后，脚本里的相对路径可能已经过时。改脚本或重新跑之前，先核对路径是否还指向现在的位置。
+- `make_baisuzhen_agron_my.py`、`make_cf_agron_my.py`：早期版本的页面生成脚本（依赖文件已随目录重组清理，当前产物改由 skill 生成）
+- `build_cf_sdf_rows.py`：春风书页曲面展平与 2800px SDF 行图重建
+- `make_ruler_cf.py`：在行图上绘制 1% 标尺，用于读取音符坐标
+
+`脚本/sonnet/` 是旧版本脚本，保留作对照。
+
+改脚本或重新跑之前，先核对路径是否还指向现在的位置。
 
 ## 文档
 
-`文档/` 中有方案文档和 `程序说明.md`。`程序说明.md` 写于删除 `index.html` 方案之前，其中关于模块化页面和本地服务器的部分已经过时；目录和实现原则以本文件和当前文件夹为准。
+`program/文档/` 中有方案文档与功能清单。关于模块化页面和本地服务器的旧方案说明已随 `index.html` 一并删除；目录和实现原则以本文件和当前文件夹为准。
 
 ## 工作约定
 
 - 文本文件使用 UTF-8。曲目文件夹和 HTML 文件名含中文，操作时用字面路径，不要改名除非用户要求。
-- 不要提交 `.gitignore` 里的内容（包括 `program/.agents/`、各 `out_*` 等）。`AGENTS.md` 和 `CLAUDE.md` 在仓库根目录，不在 ignore 范围内；小改动先留本地，等用户说再提交。
+- 不要提交 `.gitignore` 里的内容（`program/模板/out/`、Python 缓存等）。`AGENTS.md` 和 `CLAUDE.md` 在仓库根目录，不在 ignore 范围内；小改动先留本地，等用户说再提交。
+- `program/.agents/` 下的 skill 已纳入版本管理，模板与 HTML 产物必须保持版本对应：改了 `page.template.html` 或 `guqin_page.py`，要重跑 `build` 重新生成 HTML 并一起提交，否则会出现模板与产物脱节。
 - 不要直接推送到 `main`。功能在分支上改；需要提交到 GitHub 时开正式 Pull Request（不要用 draft），由用户手动添加 Copilot 作为 reviewer，再 Squash and merge。
 - 小改动可以先留在本地，不要急着 commit 或开 PR，等用户说再提交。
 - 不要安装未要求的扩展、不要改用户未点名的无关文件。
