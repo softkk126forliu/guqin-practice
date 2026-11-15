@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""古琴「跟谱」页面生成器：谱面照片 + spec.json -> 单文件 HTML。
+
+子命令（都只需要 Pillow + numpy）：
+  rows   spec.json            在照片上画出每一排的裁切框 -> rows_preview.jpg   （检查切行是否准确）
+  clean  spec.json            裁切每一排、去掉彩笔批注、拉平光照 -> out/row_N.jpg
+  peaks  spec.json [--row N]  列出每排墨迹的横向聚类中心(%)，用来校准 notes[].x
+  check  spec.json            把每个音的格子画在行图上 -> out/check_N.jpg      （检查对位）
+  build  spec.json            生成最终 HTML（内嵌图片）
+spec.json 格式见 SKILL.md。
+"""
+import argparse, base64, io, json, os, re, sys
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE = os.path.join(HERE, "..", "templates", "page.template.html")
+ROW_W = 1328            # 输出行图宽度
+CELL_W = 3.13           # 每个音的格子宽度(行宽 %)
+MAJOR = [0, 2, 4, 5, 7, 9, 11]
+ACC = {"#": 1, "♯": 1, "b": -1, "♭": -1}
+TONIC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+
+
+def tonic_pc(s):
+    """'bB' / '♭B' / 'F#' / 'C' -> 0..11"""
+    s = s.strip()
+    acc = 0
+    while s and s[0] in ACC:
+        acc += ACC[s[0]]; s = s[1:]
+    base = TONIC[s[0].upper()]
+    for ch in s[1:]:
+        acc += ACC.get(ch, 0)
+    return (base + acc) % 12
+
+
+def digit_pc(tok, tonic):
+    """简谱音符 '6' '#4' 'b7' '7#' -> 音级(0..11)。八度点无关，App 会按旋律走向自动选八度。"""
+    tok = str(tok).strip(); acc = 0
+    for ch in tok:
+        acc += ACC.get(ch, 0)
+    d = int(re.sub(r"[^1-7]", "", tok))
+    return (tonic + MAJOR[d - 1] + acc) % 12
+
+
+def load_spec(path):
+    spec = json.load(open(path, encoding="utf-8"))
+    spec["_dir"] = os.path.dirname(os.path.abspath(path))
+    spec.setdefault("out", "out")
+    return spec
+
+
+def P(spec, rel):
+    return rel if os.path.isabs(rel) else os.path.join(spec["_dir"], rel)
+
+
+def open_photo(spec):
+    im = ImageOps.exif_transpose(Image.open(P(spec, spec["photo"])))
+    rot = spec.get("rotate", 0)
+    if rot:
+        im = im.rotate(rot, expand=True, fillcolor=(255, 255, 255))
+    return im.convert("RGB")
+
+
+def crop_box(im, box):
+    w, h = im.size
+    return im.crop((int(box[0] * w), int(box[1] * h), int(box[2] * w), int(box[3] * h)))
+
+
+def clean_row(img, row):
+    """去彩笔 + 拉平光照 + 提墨。输入 RGB，输出 L 模式，白底黑字。"""
+    if row.get("rotate"):
+        img = img.rotate(row["rotate"], expand=True, fillcolor=(255, 255, 255))
+    a = np.asarray(img).astype(np.int16)
+    # 1) 彩色批注：饱和度高的像素(红/橙/蓝/黄荧光)判为批注，膨胀后抹白
+    sat = a.max(axis=2) - a.min(axis=2)
+    thr = row.get("color_thr", 38)
+    colored = Image.fromarray(((sat > thr) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5))
+    cm = np.asarray(colored) > 0
+    gray = np.asarray(img.convert("L")).astype(np.float32)
+    # 2) 先用中值把批注区域填成纸色，再估计背景
+    fill = np.median(gray[~cm]) if (~cm).any() else 235
+    g2 = np.where(cm, fill, gray)
+    bg = np.asarray(Image.fromarray(g2.astype(np.uint8)).filter(ImageFilter.GaussianBlur(max(12, img.width // 60)))).astype(np.float32)
+    bg = np.maximum(bg, 1)
+    flat = np.clip(g2 / bg * 255, 0, 255)           # 光照拉平：纸≈255
+    lo, hi = row.get("black", 120), row.get("white", 225)
+    v = np.clip((flat - lo) / (hi - lo), 0, 1)
+    v = v * v * (3 - 2 * v) * 255
+    v[cm] = 255                                      # 批注区域强制白
+    # 3) 手动擦除矩形（行内比例 0..1），用于铅笔字等颜色法去不掉的批注
+    h, w = v.shape
+    for e in row.get("erase", []):
+        v[int(e[1] * h):int(e[3] * h), int(e[0] * w):int(e[2] * w)] = 255
+    out = Image.fromarray(v.astype(np.uint8), "L")
+    nh = round(out.height * ROW_W / out.width)
+    return out.resize((ROW_W, nh), Image.LANCZOS)
+
+
+def row_images(spec):
+    """返回每排的 L 模式行图。row.image 已有干净图时直接用，否则从照片裁切+清洗。
+    row.photo 可逐排指定原图（跨多张书页照片时用），否则回落到顶层 spec["photo"]。"""
+    ims = []
+    photos = {}
+    for r in spec["rows"]:
+        if r.get("image"):
+            im = Image.open(P(spec, r["image"])).convert("L")
+            if im.width != ROW_W:
+                im = im.resize((ROW_W, round(im.height * ROW_W / im.width)), Image.LANCZOS)
+            ims.append(im)
+        else:
+            name = r.get("photo") or spec["photo"]
+            if name not in photos:
+                s = dict(spec); s["photo"] = name
+                photos[name] = open_photo(s)
+            ims.append(clean_row(crop_box(photos[name], r["box"]), r))
+    return ims
+
+
+def outdir(spec):
+    d = P(spec, spec["out"]); os.makedirs(d, exist_ok=True); return d
+
+
+def cmd_rows(spec):
+    im = open_photo(spec); d = ImageDraw.Draw(im); w, h = im.size
+    for i, r in enumerate(spec["rows"]):
+        if "box" not in r: continue
+        b = r["box"]; xy = [b[0] * w, b[1] * h, b[2] * w, b[3] * h]
+        d.rectangle(xy, outline=(255, 0, 0), width=max(3, w // 400))
+        d.text((xy[0] + 6, xy[1] + 4), f"row {i+1}", fill=(255, 0, 0))
+    im.thumbnail((1800, 1800)); p = os.path.join(outdir(spec), "rows_preview.jpg"); im.save(p, quality=88); print(p)
+
+
+def cmd_clean(spec):
+    for i, im in enumerate(row_images(spec)):
+        p = os.path.join(outdir(spec), f"row_{i+1}.jpg"); im.save(p, quality=92); print(p, im.size)
+
+
+def cmd_peaks(spec, only=None):
+    for i, im in enumerate(row_images(spec)):
+        if only and i + 1 != only: continue
+        r = spec["rows"][i]; y0, y1 = r.get("band", [0, 1])
+        a = np.asarray(im).astype(np.float32); H, W = a.shape
+        ink = (255 - a[int(y0 * H):int(y1 * H)]).sum(axis=0)
+        on = ink > ink.max() * 0.04
+        res, s = [], None
+        for x in range(W + 1):
+            f = on[x] if x < W else False
+            if f and s is None: s = x
+            if not f and s is not None:
+                if x - s > 3: res.append(((s + x) / 2 / W * 100, (x - s) / W * 100))
+                s = None
+        # 合并间距<1.2% 的小块（同一个字的上下结构）
+        m = []
+        for c, wd in res:
+            if m and c - m[-1][0] < 1.2: m[-1] = ((m[-1][0] + c) / 2, max(m[-1][1], wd))
+            else: m.append((c, wd))
+        print(f"row {i+1} 有 {len(m)} 个墨迹块；中心(%)=", [round(c, 1) for c, _ in m])
+        print(f"   对应 notes[].x = 中心 - {CELL_W/2:.2f}")
+
+
+def cell_list(spec):
+    tonic = tonic_pc(spec.get("tonic", "C")); cells = []
+    for ri, r in enumerate(spec["rows"]):
+        for n in r["notes"]:
+            rest = 1 if n.get("rest") else 0
+            pcs = [] if rest else (n["pc"] if "pc" in n else [digit_pc(t, tonic) for t in n["p"]])
+            cells.append([ri, pcs, round(n["x"], 2), n.get("w", CELL_W), n["d"], rest])
+    return cells
+
+
+def cmd_check(spec):
+    cells = cell_list(spec)
+    NM = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"]
+    for i, im in enumerate(row_images(spec)):
+        rgb = Image.merge("RGB", (im, im, im)); d = ImageDraw.Draw(rgb); W, H = rgb.size
+        k = 0
+        for c in cells:
+            if c[0] != i: continue
+            k += 1; x = c[2] / 100 * W; w = c[3] / 100 * W
+            d.rectangle([x, H * .04, x + w, H * .96], outline=(255, 0, 0), width=2)
+            d.text((x + 2, 2), str(k), fill=(255, 0, 0))
+            d.text((x + 2, H - 14), "休" if c[5] else "".join(NM[p] for p in c[1][:1]), fill=(0, 120, 0))
+        p = os.path.join(outdir(spec), f"check_{i+1}.jpg"); rgb.save(p, quality=90); print(p, f"{k} 个音")
+
+
+def b64(im):
+    b = io.BytesIO(); im.save(b, "JPEG", quality=90, optimize=True)
+    return base64.b64encode(b.getvalue()).decode()
+
+
+def cmd_build(spec):
+    ims = row_images(spec); cells = cell_list(spec)
+    for i, r in enumerate(spec["rows"]):
+        n = sum(1 for c in cells if c[0] == i)
+        if n == 0: sys.exit(f"第{i+1}排没有音符")
+    t = open(TEMPLATE, encoding="utf-8").read()
+    rep = {
+        "@@TITLE@@": spec["title"],
+        "@@SUBTITLE@@": spec.get("subtitle", ""),
+        "@@IMGS@@": json.dumps([b64(i) for i in ims]),
+        "@@CELLS@@": json.dumps(cells, ensure_ascii=False),
+        "@@BPM@@": json.dumps([r.get("bpm", 60) for r in spec["rows"]]),
+        "@@ROWN@@": json.dumps([sum(1 for c in cells if c[0] == i) for i in range(len(spec["rows"]))]),
+    }
+    for k, v in rep.items(): t = t.replace(k, v)
+    out = P(spec, spec.get("html", f"古琴跟谱 · {spec['title']}.html"))
+    open(out, "w", encoding="utf-8").write(t)
+    print(out, f"{os.path.getsize(out)//1024} KB, {len(cells)} 个音, {len(ims)} 排")
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["rows", "clean", "peaks", "check", "build"])
+    ap.add_argument("spec"); ap.add_argument("--row", type=int)
+    a = ap.parse_args(); s = load_spec(a.spec)
+    {"rows": cmd_rows, "clean": cmd_clean, "check": cmd_check, "build": cmd_build}.get(a.cmd, lambda s: cmd_peaks(s, a.row))(s)
