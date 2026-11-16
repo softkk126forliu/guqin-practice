@@ -113,5 +113,6 @@
 - 不要提交 `.gitignore` 里的内容（`program/模板/out/`、Python 缓存等）。`AGENTS.md` 和 `CLAUDE.md` 在仓库根目录，不在 ignore 范围内；小改动先留本地，等用户说再提交。
 - `program/.agents/` 下的 skill 已纳入版本管理，模板与 HTML 产物必须保持版本对应：改了 `page.template.html` 或 `guqin_page.py`，要重跑 `build` 重新生成 HTML 并一起提交，否则会出现模板与产物脱节。
 - 不要直接推送到 `main`。功能在分支上改；需要提交到 GitHub 时开正式 Pull Request（不要用 draft），由用户手动添加 Copilot 作为 reviewer，再 Squash and merge。
+- 提交前先确认当前分支：`git branch --show-current`。本仓库是个人账户下的私有仓库，`main` 没有分支保护（需 GitHub Pro 才有），直接 push 不会被 GitHub 拦截，但会跳过 PR、跳过 Copilot review，也不留下变更说明。
 - 小改动可以先留在本地，不要急着 commit 或开 PR，等用户说再提交。
 - 不要安装未要求的扩展、不要改用户未点名的无关文件。

@@ -44,6 +44,7 @@
 - 默认只做用户当前这一次要求的改动，保持 diff 小而可审。
 - 小改动先留在本地，不要主动 commit、push 或开 PR。
 - 若用户要求提交到 GitHub：不要推 `main`；在功能分支上提交，开正式 PR（不要 draft），交给用户手动添加 Copilot reviewer。
+- 提交前先确认当前分支：`git branch --show-current`。本仓库是个人账户下的私有仓库，`main` 没有分支保护（需 GitHub Pro 才有），直接 push 不会被 GitHub 拦截，但会跳过 PR、跳过 Copilot review，也不留下变更说明。
 - 不要提交 `.gitignore` 中的内容（`program/模板/out/`、Python 缓存等）。
 - `program/.agents/` 下的 skill 已纳入版本管理。改了 `page.template.html` 或 `guqin_page.py` 就必须重跑 `build` 重新生成 HTML 并一起提交，保持模板与产物版本对应。
 - 文本使用 UTF-8；不要擅自重命名含中文的曲目目录或 HTML 文件。
