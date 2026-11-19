@@ -1,8 +1,13 @@
 # Generated and tool output — keep locally, do not upload
 
+# 通用 Copilot 审查规范模板：内容是 Controller/Service 分层、Protobuf、
+# SQL 参数化、trace_id 等后端架构规则，与本仓库（Python + 单文件 HTML）
+# 的技术栈不匹配，入库会导致评审提出大量无效意见。故只留本地。
+copilot-instructions.md
+
 # 模板/ 与 春风/ 的产出物纳入版本管理：
 #   模板/   —— 书页原图、spec、两份定稿模板 HTML
-#   春风/   —— spec、行图、标尺图、成品 HTML
+#   春风/   —— spec、行图、标尺图、成品 HTML、PDF 琴谱、示范音频
 #   模板/out/ 为生成过程中的临时切图，不入库
 program/模板/out/
 
