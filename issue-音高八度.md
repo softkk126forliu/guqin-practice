@@ -1,5 +1,9 @@
 # 跟谱页音高与八度规划不准确（音频对照实测 43% 八度偏差）
 
+> 本文档是 GitHub issue #10 的完整分析底稿。
+> Issue: https://github.com/softkk126forliu/guqin-practice/issues/10
+> 相关 PR: `feat/guqin-audio-check`（新增检查 skill 与示范素材）
+
 ## 问题
 
 用 `guqin-audio-check` skill 对照《春风》跟谱页与示范录音实测，发现页面"模拟弹奏"发出的音高与录音存在系统性偏差：

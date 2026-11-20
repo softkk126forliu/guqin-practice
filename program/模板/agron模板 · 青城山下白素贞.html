@@ -583,6 +583,12 @@ function midiName(m) {
   return NM[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 }
 
+// 实际发声的 MIDI：泛音统一上移一个八度并限幅，与 buildKSBuffer 保持一致。
+// HUD 显示必须用它，否则泛音段显示的音高会比真实发声音低八度。
+function effMidiOf(midi, isHarm) {
+  return isHarm ? Math.min(79, midi + 12) : midi;
+}
+
 /* ---------- 3. 状态与领奏放大窗渲染 ---------- */
 let idx = 0, hit = 0, miss = 0;
 const warnSet = new Set();
@@ -601,7 +607,8 @@ function drawLens() {
   } else {
     const hTag = c.harm ? `<small>○ 泛音</small>` : (c.p.length > 1 ? `<small>撮 双音</small>` : `<small>简谱</small>`);
     $("#hudJp").innerHTML = `${hTag}${c.p.join("<br>")}`;
-    const mNames = MIDI[Math.min(idx, CELLS.length - 1)].map(midiName).join(" + ");
+    const mNames = MIDI[Math.min(idx, CELLS.length - 1)]
+      .map(m => midiName(effMidiOf(m, !!c.harm))).join(" + ");
     $("#hudPitch").textContent = mNames;
     $("#hudTech").textContent = c.harm ? "泛音 (清亮)" : (c.p.length > 1 ? "撮和弦 (双弦同奏)" : "散/按音");
   }
@@ -732,7 +739,7 @@ function buildKSBuffer(midi, isHarm) {
   const key = midi + (isHarm ? "_H" : "_S");
   if (ksCache[key]) return ksCache[key];
   const a = ensureAudio(), fs = a.sampleRate;
-  const effMidi = isHarm ? Math.min(79, midi + 12) : midi;
+  const effMidi = effMidiOf(midi, isHarm);
   const f = 440 * Math.pow(2, (effMidi - 69) / 12);
   const dur = isHarm ? 4.8 : (effMidi < 48 ? 6.8 : 5.4);
   const L = (fs * dur) | 0;

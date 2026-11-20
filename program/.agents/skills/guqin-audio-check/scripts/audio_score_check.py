@@ -48,7 +48,12 @@ def midi_name(m):
 
 def page_midis(score):
     """复刻跟谱页模板（page.template.html）的八度规划与泛音升八度逻辑。
-    返回与 score 等长的 [(hud_m, eff_m), ...]；休止符为 ([], [])。"""
+    返回与 score 等长的 [(hud_m, eff_m), ...]；休止符为 ([], [])。
+
+    注意：这里是模板逻辑的手工复刻，模板改了要同步本函数。
+    2026-11-20 起模板的 HUD 改为显示实际发声音高（effMidiOf），
+    与合成器一致，因此 hud_m == eff_m。
+    """
     out, pv = [], 52
     for c in score:
         if c["rest"] or not c["pcs"]:
@@ -66,7 +71,8 @@ def page_midis(score):
             ms.append(best - dd)
         pv = best
         eff = [min(79, m + 12) if c["harm"] else m for m in ms]
-        out.append((ms, eff))
+        # 模板 HUD 现在显示实际发声音高，故 hud 与 eff 相同
+        out.append((eff, eff))
     return out
 
 
