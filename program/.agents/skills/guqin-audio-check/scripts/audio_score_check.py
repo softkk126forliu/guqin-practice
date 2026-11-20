@@ -53,13 +53,14 @@ def page_midis(score):
     注意：这里是模板逻辑的手工复刻，模板改了要同步本函数。
     2026-11-20 起模板的 HUD 改为显示实际发声音高（effMidiOf），
     与合成器一致，因此 hud_m == eff_m。
+    同日起模板的目标中心改为 泛音 52 / 散按 62（原为 60 / 52）。
     """
     out, pv = [], 52
     for c in score:
         if c["rest"] or not c["pcs"]:
             out.append(([], []))
             continue
-        tc = 60 if c["harm"] else 52
+        tc = 52 if c["harm"] else 62
         min_m, max_m = (48, 74) if c["harm"] else (40, 67)
         best = min(
             (m for m in range(min_m, max_m + 1) if m % 12 == c["pcs"][0]),
