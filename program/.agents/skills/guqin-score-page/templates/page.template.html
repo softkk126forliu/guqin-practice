@@ -573,9 +573,19 @@ const MIDI = [];
     // 同样走确定路径，避免被 pv 锚定带偏（排 6 音 13 即因此被贪心锁在高八度）。
     return [48 + k * 12, 59 + k * 12];
   };
+  // 谱面「下加线」给出的八度区（青城/正调用线记法）。
+  //   0  = 中音区 [48,59]（简谱默认区，工尺的 上/尺/工/凡）
+  //   -1 = 低音区 [36,47]（工尺的 合/四/一，即一二三弦的空弦音高）
+  // 只用于非泛音音：泛音的发声在徽位上，音高由徽位决定，下加线不适用。
+  const octZone = (shift) => {
+    if (shift === null || shift === undefined) return null;
+    const k = shift | 0;
+    return [48 + k * 12, 59 + k * 12];
+  };
   CELLS.forEach(c => {
     if (c.rest || !c.pcs.length) { MIDI.push([]); return; }
-    const zone = dotZone(c.dot, c.harm);
+    const zone = dotZone(c.dot, c.harm)
+      || (c.harm ? null : octZone(c.oct_shift));
     let best = null;
     if (zone) {
       // 有谱面点标记：八度唯一确定，无需猜测
