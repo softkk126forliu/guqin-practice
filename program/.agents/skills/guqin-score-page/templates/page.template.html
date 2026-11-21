@@ -573,23 +573,32 @@ const MIDI = [];
     // 同样走确定路径，避免被 pv 锚定带偏（排 6 音 13 即因此被贪心锁在高八度）。
     return [48 + k * 12, 59 + k * 12];
   };
-  // 谱面「下加线」给出的八度区（青城/正调用线记法）。
-  //   0  = 中音区 [48,59]（简谱默认区，工尺的 上/尺/工/凡）
-  //   -1 = 低音区 [36,47]（工尺的 合/四/一，即一二三弦的空弦音高）
-  // 只用于非泛音音：泛音的发声在徽位上，音高由徽位决定，下加线不适用。
-  const octZone = (shift) => {
+  // 谱面八度偏移（青城/正调用点与线记法；春风用 dot 字段）。
+  //   0  = 默认区 [48,59]（工尺的 上/尺/工/凡）
+  //   +1 = 高八度区 [60,71]
+  //   -1 = 低八度区 [36,47]（工尺的 合/四/一，即一二三弦空弦音高）
+  // 标量 = 撮的所有音同区；数组 = 每个音各自的偏移（异八度撮）。
+  // 只用于非泛音音：泛音发声在徽位上，音高由徽位决定，谱面八度记号不适用。
+  const octZoneAt = (k) => [48 + (k | 0) * 12, 59 + (k | 0) * 12];
+  const octZones = (shift, n) => {
     if (shift === null || shift === undefined) return null;
-    const k = shift | 0;
-    return [48 + k * 12, 59 + k * 12];
+    if (Array.isArray(shift)) {
+      if (shift.length !== n) return null;      // 长度须与音数一致
+      return shift.map(octZoneAt);
+    }
+    return new Array(n).fill(octZoneAt(shift));
   };
   CELLS.forEach(c => {
     if (c.rest || !c.pcs.length) { MIDI.push([]); return; }
-    const zone = dotZone(c.dot, c.harm)
-      || (c.harm ? null : octZone(c.oct_shift));
+    const dz = dotZone(c.dot, c.harm);
+    // zones[k] = 第 k 个音应落的八度区间；null 表示无谱面依据，需回落到贪心
+    const zones = dz ? new Array(c.pcs.length).fill(dz)
+                     : (c.harm ? null : octZones(c.oct_shift, c.pcs.length));
     let best = null;
-    if (zone) {
-      // 有谱面点标记：八度唯一确定，无需猜测
-      for (let m = zone[0]; m <= zone[1]; m++) {
+    if (zones) {
+      // 有谱面八度记号：八度唯一确定，无需猜测
+      const z = zones[0];
+      for (let m = z[0]; m <= z[1]; m++) {
         if (((m % 12) + 12) % 12 === c.pcs[0]) { best = { m, d: 0 }; break; }
       }
     }
@@ -607,11 +616,15 @@ const MIDI = [];
     }
     const ms = [];
     for (let k = 0; k < c.pcs.length; k++) {
-      if (zone) {
-        // 撮的每个音按各自音级在同一区间内取值
-        for (let m = zone[0]; m <= zone[1]; m++) {
-          if (((m % 12) + 12) % 12 === c.pcs[k]) { ms.push(m); break; }
+      if (zones) {
+        // 撮的每个音按各自音级在**各自的区间**内取值（异八度撮可用数组表达）
+        const z = zones[k];
+        let pick = -1;
+        for (let m = z[0]; m <= z[1]; m++) {
+          if (((m % 12) + 12) % 12 === c.pcs[k]) { pick = m; break; }
         }
+        if (pick < 0) pick = best.m;
+        ms.push(pick);
       } else if (k === 0) {
         ms.push(best.m);
       } else {

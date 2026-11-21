@@ -72,24 +72,35 @@ def page_midis(score):
             out.append(([], []))
             continue
         dot = c.get("dot", "")
-        zone = None
+        dz = None
         if dot in ("u1", "u2", "d1"):
             k = 0
             if dot.startswith("u"):
                 nd = int(dot[1:]) if dot[1:].isdigit() else 0
                 k = max(0, nd - 1) if c["harm"] else nd
             # d1（下方 1 个点）与无点音同处低音区，k 保持 0
-            zone = (48 + k * 12, 59 + k * 12)
+            dz = (48 + k * 12, 59 + k * 12)
+        # zones[k] = 第 k 个音应落的八度区间；None 表示无谱面依据，需回落贪心。
+        # 谱面八度偏移（青城/正调用点与线记法）：
+        #   0 = 默认区 [48,59]，+1 = 高八度区 [60,71]，-1 = 低八度区 [36,47]
+        # 标量 = 撮的所有音同区；数组 = 每个音各自的偏移（异八度撮）。
+        # 只用于非泛音音：泛音发声在徽位上，音高由徽位决定，谱面记号不适用。
+        zones = None
+        if dz:
+            zones = [dz] * len(c["pcs"])
         elif not c["harm"] and c.get("oct_shift") is not None:
-            # 谱面「下加线」给出的八度区（青城/正调用线记法）：
-            #   0 = 中音区 [48,59]，-1 = 低音区 [36,47]
-            # 只用于非泛音音：泛音发声在徽位上，音高由徽位决定，下加线不适用。
-            k = c["oct_shift"] | 0
-            zone = (48 + k * 12, 59 + k * 12)
+            sh = c["oct_shift"]
+            arr = list(sh) if isinstance(sh, (list, tuple)) else [sh] * len(c["pcs"])
+            if len(arr) == len(c["pcs"]):
+                try:
+                    zones = [(48 + int(k) * 12, 59 + int(k) * 12) for k in arr]
+                except (TypeError, ValueError):
+                    zones = None
         ms = []
-        if zone:
-            for pc in c["pcs"]:
-                pick = next((m for m in range(zone[0], zone[1] + 1) if m % 12 == pc), None)
+        if zones:
+            for k, pc in enumerate(c["pcs"]):
+                z = zones[k]
+                pick = next((m for m in range(z[0], z[1] + 1) if m % 12 == pc), None)
                 if pick is None:
                     pick = next(m for m in range(48, 72) if m % 12 == pc)
                 ms.append(pick)
