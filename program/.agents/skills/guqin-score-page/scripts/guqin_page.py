@@ -510,6 +510,8 @@ def build_cells_and_rows(spec, ims):
                 "harm": harm,
                 # 谱面八度点标记：u1=上方1个实心点 u2=上方2个 d1=下方1个
                 "dot": ("" if rest else str(n.get("dot", "") or "")),
+                # 谱面「下加线」给出的八度区：0=中音区 -1=低音区（仅非泛音用）
+                "oct_shift": (None if rest else n.get("oct_shift")),
             })
     return rows_meta, cells
 

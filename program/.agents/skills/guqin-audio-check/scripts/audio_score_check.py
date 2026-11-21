@@ -80,6 +80,12 @@ def page_midis(score):
                 k = max(0, nd - 1) if c["harm"] else nd
             # d1（下方 1 个点）与无点音同处低音区，k 保持 0
             zone = (48 + k * 12, 59 + k * 12)
+        elif not c["harm"] and c.get("oct_shift") is not None:
+            # 谱面「下加线」给出的八度区（青城/正调用线记法）：
+            #   0 = 中音区 [48,59]，-1 = 低音区 [36,47]
+            # 只用于非泛音音：泛音发声在徽位上，音高由徽位决定，下加线不适用。
+            k = c["oct_shift"] | 0
+            zone = (48 + k * 12, 59 + k * 12)
         ms = []
         if zone:
             for pc in c["pcs"]:
@@ -121,7 +127,7 @@ def load_score(page=None, spec=None, tonic=None):
         bpms = [r.get("bpm", 60) for r in json.loads(mr.group(1))] if mr else []
         return [dict(row=c["r"] + 1, ni=c["ni"] + 1, p=c.get("p", []), pcs=c.get("pcs", []),
                      d=c.get("d", 1), rest=bool(c.get("rest")), harm=bool(c.get("harm")),
-                     dot=c.get("dot", ""),
+                     dot=c.get("dot", ""), oct_shift=c.get("oct_shift"),
                      bpm=bpms[c["r"]] if c["r"] < len(bpms) else 60) for c in cells]
     sp = json.load(open(spec, encoding="utf-8"))
     t = TONIC[tonic or sp.get("tonic", "C")]
@@ -133,7 +139,8 @@ def load_score(page=None, spec=None, tonic=None):
                 (t + DEG[x[-1]] + (1 if x.startswith("#") else -1 if x.startswith("b") else 0)) % 12 for x in p]
             out.append(dict(row=ri + 1, ni=ni + 1, p=p, pcs=pcs, d=n.get("d", 1),
                             rest=bool(n.get("rest")), harm=bool(n.get("harm")),
-                            dot=n.get("dot", ""), bpm=r.get("bpm", 60)))
+                            dot=n.get("dot", ""), oct_shift=n.get("oct_shift"),
+                            bpm=r.get("bpm", 60)))
     return out
 
 

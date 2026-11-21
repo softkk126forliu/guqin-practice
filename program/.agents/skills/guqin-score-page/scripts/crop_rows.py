@@ -76,7 +76,16 @@ def build(spec, out_dir, row_w=ROW_W, marked=True):
                 if nx is None:
                     continue
                 px = nx / 100.0 * simp.width
+                # 序号旁同时标出 spec 的音级 —— note.x 与实际数字位置可能有偏差
+                # （撮/叠写处尤甚），标出音级可让标注者当场交叉验证，
+                # 避免张冠李戴（实测排3 曾把「3/4」读成「4/5」）。
+                p = n.get("p")
+                if isinstance(p, list):
+                    lbl = "/".join(str(x).strip() for x in p if x is not None and str(x).strip())
+                else:
+                    lbl = "" if p is None else str(p).strip()
                 d.text((px - 6, 2), str(ni), fill=(180, 40, 40))
+                d.text((px + 12, 2), lbl, fill=(20, 90, 160))
             simp.save(os.path.join(out_dir, "row_%d_marks.png" % ri))
 
         made.append(ri)
