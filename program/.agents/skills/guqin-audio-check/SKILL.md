@@ -32,6 +32,23 @@ python .agents/skills/guqin-audio-check/scripts/audio_score_check.py `
 可选：`--transpose N`（强制移调，默认 auto）、`--tune C`（强制调音偏差 cents）。
 报告不要写进仓库的曲目目录，放到 scratch 或 artifact 目录，除非用户要求保留。
 
+## 2.1 改模板后必跑：一致性校验
+
+`audio_score_check.py` 的 `page_midis()` 是模板八度规划逻辑的**手工复刻**。
+两边一旦分叉，报告里的 `page_sound` 就与页面实际发声不符，所有基于报告的结论都会失真。
+
+**改了 `page.template.html` 的八度规划后，先跑这个**：
+
+```powershell
+python .agents/skills/guqin-audio-check/scripts/check_sync.py `
+  --page "春风/古琴跟谱 · 春风_agron_my.html"
+```
+
+它**不依赖"复刻是否写对"** —— 而是从模板文件里真实提取规划代码块，用 node 执行它，
+再与 `page_midis()` 的输出逐音对账。退出码 0 = 一致，1 = 有分歧（打印明细）。
+
+依赖 `node` 在 PATH 中。没装 node 就只能靠人肉对账，务必格外小心。
+
 ## 3. 算法（为什么这样做）
 
 1. **调音偏差**：录音的谱峰相对 A440 做加权圆均值。古琴很少正好在 A440（《春风》示范约 −32 cents，A4≈432Hz），不先校正，按音会被分到相邻半音。

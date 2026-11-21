@@ -65,7 +65,7 @@ def page_midis(score):
             continue
         dot = c.get("dot", "")
         zone = None
-        if dot:
+        if dot in ("u1", "u2", "d1"):
             k = 0
             if dot.startswith("u"):
                 nd = int(dot[1:]) if dot[1:].isdigit() else 0
@@ -90,7 +90,10 @@ def page_midis(score):
             for p in c["pcs"][1:]:
                 dd = (c["pcs"][0] - p + 12) % 12 or 12
                 ms.append(best - dd)
-            pv = best
+        # pv 必须每个音都更新（模板里是 pv = best.m，在 forEach 末尾统一执行）。
+        # 早前只在无标记分支更新，导致 dot 标记的音不推进 pv，
+        # 下一个无标记音用了陈旧的 pv，与模板产生分歧。
+        pv = ms[0]
         eff = [min(83, m + 12) if c["harm"] else m for m in ms]
         # 模板 HUD 现在显示实际发声音高，故 hud 与 eff 相同
         out.append((eff, eff))

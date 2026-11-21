@@ -562,6 +562,8 @@ const MIDI = [];
   // 数字下方的点不改变八度（谱面读数：下点音与无点音同处低音区）。
   const dotZone = (dot, harm) => {
     if (!dot) return null;
+    // 只接受已知的标记形式；非法值回落到贪心，避免推出越界的八度区间。
+    if (dot !== "u1" && dot !== "u2" && dot !== "d1") return null;
     let k = 0;
     if (dot[0] === "u") {
       const nd = parseInt(dot.slice(1), 10) || 0;
