@@ -203,9 +203,9 @@ python .agents/skills/guqin-audio-check/scripts/check_sync.py `
 
 | # | 事项 | 说明 |
 |---|---|---|
-| 1 | **青城整首** | 谱面原图不在仓库也不在本地（`program/青城山下白素贞/` 不存在），无法标注点标记；`make_baisuzhen_agron_my.py` 因缺素材目录已跑不起来。**需补充原图** |
+| 1 | **青城整首** | ⚠️ **此前记述有误，更正**：谱面原图**一直在仓库里**（`program/模板/pu_1234_1.jpg` / `pu_1234_2.jpg` / `pu_1234_thumb.jpg`，均已纳入版本管理）。<br>误判源于查的是旧脚本的 scratch 路径 `program/青城山下白素贞/`（目录重组后已不存在），而非主路径的 `program/模板/`。<br>青城实际阻塞点：① `make_baisuzhen_agron_my.py` 的 scratch 路径失效、spec 文件名不匹配（脚本要 `baisuzhen-argon-spec.json`，实为 `baisuzhen-spec.json`）；② 尚缺按「弦 + 徽位」标注。<br>青城的记号比春风更客观（下加线表示减八度、○ 表示泛音），详见 `文档/八度基准重估.md` 第 7 节 |
 | 2 | **26 个人工复核音** | 用 `pitch_track.py` 逐个对照谱面确认，见第 10 节 |
-| 3 | **检查工具加谱面基准模式** | 现有复测仍以录音为基准。`check_sync.py` 解决的是「脚本 ↔ 模板」一致性，尚缺「页面 ↔ 谱面」的直接对账模式 |
+| 3 | **检查工具加谱面基准模式** | ✅ 已完成（PR #16）。工具新增 `aud_base`（基频八度）与 `oct_verdict`，八度判定按音色分基准；`check_sync.py` 解决「脚本 ↔ 模板」一致性 |
 
 ---
 
