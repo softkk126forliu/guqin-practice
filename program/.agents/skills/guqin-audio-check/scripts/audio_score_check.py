@@ -41,6 +41,14 @@ TONIC = {"C": 0, "#C": 1, "bD": 1, "D": 2, "#D": 3, "bE": 3, "E": 4, "F": 5, "#F
          "bG": 6, "G": 7, "#G": 8, "bA": 8, "A": 9, "#A": 10, "bB": 10, "B": 11}
 MIDI_LO, MIDI_HI = 36, 96
 
+# --- 基频判定参数（aud_base）---
+# 问题的由来：同音级的「最强八度」在泛音音与空弦低音区必然取到泛音而非基频。
+#   C2(36) 的 2 次泛音是 C3(48)，D2(38) 的 3 次泛音是 D4(62)。
+# 判定八度是否正确时，应以基频为准，故额外输出「出现的最低八度」。
+AUD_BASE_RATIO = 0.30   # 候选八度需达到最强八度显著度的这个比例才算「出现过」
+AUD_BASE_LO_HARM = 41   # 泛音的基频下限（古琴泛音最低 ≈ 空弦 36 + 徽位音程 5）
+AUD_BASE_LO_PLAIN = 36  # 散按的基频下限（古琴最低音 C2 = 36）
+
 
 def midi_name(m):
     return f"{NM[m % 12]}{m // 12 - 1}"
@@ -387,6 +395,7 @@ def main():
         j = path.get(k)
         if j is None:
             rows.append(dict(base, time="", onset="", heard="", pitch="", aud_pitch="",
+                             aud_base="", oct_verdict="",
                              sim="", rank="", verdict="缺失", extra=""))
             continue
         nxt = [path[q] for q in range(k + 1, len(playable)) if q in path]
@@ -406,11 +415,38 @@ def main():
         top_m = MIDI_LO + int(np.argmax(Pm))
         aud_cands = [m for m in range(48 if c["harm"] else 36, 80) if m % 12 == exp[0]]
         aud_m = max(aud_cands, key=lambda m: Pm[m - MIDI_LO])
+        # 基频八度：同音级中「出现过」的最低八度。泛音音与空弦低音的基频弱、
+        # 分音强，最强八度必然落在泛音上，故八度正确性应以基频为准。
+        lo_base = AUD_BASE_LO_HARM if c["harm"] else AUD_BASE_LO_PLAIN
+        base_cands = [m for m in range(lo_base, 80) if m % 12 == exp[0]]
+        if base_cands:
+            thr = Pm[aud_m - MIDI_LO] * AUD_BASE_RATIO
+            present = [m for m in base_cands if Pm[m - MIDI_LO] >= thr]
+            aud_base_m = min(present) if present else aud_m
+        else:
+            aud_base_m = aud_m
+        # 八度维度判定：页面发声 vs 录音
+        # 基准按音色分：泛音音的基频被抑制，发声就是高处的分音 → 用最强八度；
+        # 散按音（尤其空弦低音）基频才是实际音高，最强八度会落在泛音上 → 用基频。
+        if c["harm"]:
+            ref_m = aud_m
+        else:
+            ref_m = aud_base_m
+        page_first = eff_m[0]
+        d_oct = page_first - ref_m
+        if d_oct == 0:
+            oct_verdict = "八度一致"
+        elif d_oct % 12 == 0:
+            oct_verdict = "页面高%d八度" % (d_oct // 12) if d_oct > 0 else "页面低%d八度" % (-d_oct // 12)
+        else:
+            oct_verdict = "音级不符"
         extra = [f"{et[q] + a.start:.2f}:{NM[int(np.argmax(EV[q]))]}"
                  for q in range(j + 1, nxt[0] if nxt else j + 1) if is_on[q] and estr[q] >= 0.45]
         rows.append(dict(base, time=round(t_on + a.start, 2), onset="拨" if is_on[j] else "走",
                          heard="/".join(NM[p] for p in order[:3]), pitch=midi_name(top_m),
-                         aud_pitch=midi_name(aud_m), sim=round(s, 3), rank=rank, verdict=verdict,
+                         aud_pitch=midi_name(aud_m), aud_base=midi_name(aud_base_m),
+                         oct_verdict=oct_verdict,
+                         sim=round(s, 3), rank=rank, verdict=verdict,
                          extra=" ".join(extra)))
     rows_t = [r for r in rows if r["time"] != ""]
 
@@ -418,6 +454,15 @@ def main():
     n_ok = sum(r["verdict"] == "OK" for r in rows)
     n_sus = sum(r["verdict"] == "可疑" for r in rows)
     n_bad = sum(r["verdict"] in ("不一致", "缺失") for r in rows)
+    # 八度维度统计（基准按音色分：泛音用最强八度，散按用基频；仅统计可判的音）
+    oct_rows = [r for r in rows if r["oct_verdict"] and r["oct_verdict"] != ""]
+    oct_ok = sum(r["oct_verdict"] == "八度一致" for r in oct_rows)
+    oct_bad = sum(r["oct_verdict"].startswith("页面") for r in oct_rows)
+    oct_pcls = sum(r["oct_verdict"] == "音级不符" for r in oct_rows)
+    oct_hist = {}
+    for r in oct_rows:
+        if r["oct_verdict"].startswith("页面"):
+            oct_hist[r["oct_verdict"]] = oct_hist.get(r["oct_verdict"], 0) + 1
     # 每排小结与录音实际速度
     row_sum = []
     for rn in sorted({r["row"] for r in rows_t}):
@@ -433,7 +478,10 @@ def main():
     summary = dict(page=a.page or a.spec, audio=os.path.basename(a.audio), window=[a.start, a.end],
                    tuning_cents=round(tune, 1), transpose=shift, key_scores=[round(x, 3) for x in kscores],
                    speed=round(speed, 3), span=[rows_t[0]["time"], rows_t[-1]["time"]], notes=len(rows),
-                   ok=n_ok, suspicious=n_sus, mismatch=n_bad, rows=row_sum)
+                   ok=n_ok, suspicious=n_sus, mismatch=n_bad,
+                   oct_ok=oct_ok, oct_bad=oct_bad, oct_pitch_mismatch=oct_pcls,
+                   oct_hist=oct_hist, oct_rows=len(oct_rows),
+                   rows=row_sum)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out + ".csv", "w", encoding="utf-8-sig", newline="") as fh:
@@ -449,16 +497,23 @@ def main():
          f"移调：{shift} 半音（0 = 与页面同调；12 种移调相关最高 {kscores[k_best]:.3f}，同调 {kscores[0]:.3f}）",
          f"- 页面在录音中的区间：{summary['span'][0]}s – {summary['span'][1]}s；录音/页面时间倍率 ≈ {speed:.2f}",
          f"- 结果：OK {n_ok} / 可疑 {n_sus} / 不一致或缺失 {n_bad}（共 {len(rows)} 个可发音格）", "",
+         f"- 八度（以录音为基准，共 {len(oct_rows)} 个可判）：一致 {oct_ok} / 偏差 {oct_bad} / 音级不符 {oct_pcls}",
+         f"  - 偏差分布：{oct_hist if oct_hist else '无'}",
+         "  - 基准说明：`录音同音级八度` 是该音级**最强**的分音；`录音基频` 是该音级**出现过的最低**八度。",
+         "    八度判定按音色分别取基准 —— 泛音音基频被抑制，发声就是高处的分音，用最强八度；",
+         "    散按音（尤其空弦低音）基频才是实际音高，用基频。", "",
          "## 每排小结", "", "| 排 | 录音起点s | 时长s | 页面bpm | 录音约bpm | OK/总 |", "|---|---|---|---|---|---|"]
     for r in row_sum:
         L.append(f"| {r['row']} | {r['start']} | {r['seconds']} | {r['bpm_page']} | {r['bpm_audio']} | {r['ok']}/{r['n']} |")
     L += ["", "## 逐音", "",
-          "| # | 排-音 | 简谱 | 泛 | 期望 | 页面发声 | 时间s | 拨/走 | 听到(前3) | 最强音高 | 录音同音级八度 | 相似 | 名次 | 判定 | 之后多出的拨弦 |",
-          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+          "| # | 排-音 | 简谱 | 泛 | 期望 | 页面发声 | 时间s | 拨/走 | 听到(前3) | 最强音高 | 录音同音级八度 | 录音基频 | 八度判定 | 相似 | 名次 | 判定 | 之后多出的拨弦 |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         vd = r["verdict"] if r["verdict"] == "OK" else f"**{r['verdict']}**"
+        ov = r["oct_verdict"] if r["oct_verdict"] in ("", "八度一致") else f"**{r['oct_verdict']}**"
         L.append(f"| {r['idx']} | {r['row']}-{r['ni']} | {r['jianpu']} | {'○' if r['harm'] else ''} | {r['expect']} | "
                  f"{r['page_sound']} | {r['time']} | {r['onset']} | {r['heard']} | {r['pitch']} | {r['aud_pitch']} | "
+                 f"{r['aud_base']} | {ov} | "
                  f"{r['sim']} | {r['rank']} | {vd} | {r['extra']} |")
     open(a.out + ".md", "w", encoding="utf-8").write("\n".join(L) + "\n")
     print(json.dumps({k: v for k, v in summary.items() if k != "rows"}, ensure_ascii=False))
