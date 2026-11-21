@@ -65,9 +65,12 @@ def page_midis(score):
             continue
         dot = c.get("dot", "")
         zone = None
-        if dot and dot.startswith("u"):
-            nd = int(dot[1:]) if dot[1:].isdigit() else 0
-            k = max(0, nd - 1) if c["harm"] else nd
+        if dot:
+            k = 0
+            if dot.startswith("u"):
+                nd = int(dot[1:]) if dot[1:].isdigit() else 0
+                k = max(0, nd - 1) if c["harm"] else nd
+            # d1（下方 1 个点）与无点音同处低音区，k 保持 0
             zone = (48 + k * 12, 59 + k * 12)
         ms = []
         if zone:

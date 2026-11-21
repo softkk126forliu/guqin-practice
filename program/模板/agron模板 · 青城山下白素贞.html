@@ -558,11 +558,17 @@ const MIDI = [];
   let pv = 52;
   // 谱面八度点标记 → 规划 MIDI 所在的一个八度区间。
   // dot: u1=数字上方1个实心点, u2=上方2个, d1=下方1个。
-  // 泛音的发声由合成器另行 +12，故其规划区间要相应下移一个八度。
+  // 上方点数决定八度区；泛音的发声由合成器另行 +12，故其规划区间下移一个八度。
+  // 数字下方的点不改变八度（谱面读数：下点音与无点音同处低音区）。
   const dotZone = (dot, harm) => {
     if (!dot) return null;
-    const nd = parseInt(dot.slice(1), 10) || 0;
-    const k = harm ? Math.max(0, nd - 1) : nd;
+    let k = 0;
+    if (dot[0] === "u") {
+      const nd = parseInt(dot.slice(1), 10) || 0;
+      k = harm ? Math.max(0, nd - 1) : nd;
+    }
+    // d1（下方 1 个点）与无点音同处低音区，k 保持 0。
+    // 同样走确定路径，避免被 pv 锚定带偏（排 6 音 13 即因此被贪心锁在高八度）。
     return [48 + k * 12, 59 + k * 12];
   };
   CELLS.forEach(c => {
@@ -614,7 +620,9 @@ function midiName(m) {
 // 实际发声的 MIDI：泛音统一上移一个八度并限幅，与 buildKSBuffer 保持一致。
 // HUD 显示必须用它，否则泛音段显示的音高会比真实发声音低八度。
 function effMidiOf(midi, isHarm) {
-  return isHarm ? Math.min(79, midi + 12) : midi;
+  // 上限 83（B5）：泛音规划值可达 71，加上八度后为 83。原上限 79 会把
+  // A5/Bb5 截成 G5，导致音级错误（实测 4 个音受影响）。
+  return isHarm ? Math.min(83, midi + 12) : midi;
 }
 
 /* ---------- 3. 状态与领奏放大窗渲染 ---------- */
