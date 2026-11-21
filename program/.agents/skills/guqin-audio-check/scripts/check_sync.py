@@ -92,6 +92,15 @@ def run_template(tpl_text, cells):
             pass
 
 
+def rel(p):
+    """显示相对路径（便于把输出贴进 issue / PR）。"""
+    try:
+        r = os.path.relpath(p, os.getcwd())
+    except ValueError:
+        return p
+    return r.replace("\\", "/")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--page", required=True, help="跟谱页 HTML 路径")
@@ -131,8 +140,8 @@ def main():
             diffs.append((i, c.get("p"), c.get("dot", ""), tp, te, rep_eff))
 
     total = len([c for c in cells if not (c.get("rest") or not c.get("pcs"))])
-    print("模板: %s" % args.template)
-    print("页面: %s" % args.page)
+    print("模板: %s" % rel(args.template))
+    print("页面: %s" % rel(args.page))
     print("可比音数: %d" % total)
     if not diffs:
         print("✓ 完全一致 —— 检查脚本的复刻与模板逐音相符")
