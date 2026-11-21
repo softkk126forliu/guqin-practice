@@ -55,24 +55,46 @@ def page_midis(score):
     与合成器一致，因此 hud_m == eff_m。
     同日起模板的八度规划目标中心统一为 52（原为 泛音 60 / 散按 52，
     一次改为 泛音 52 / 散按 62 后按谱面复核又改回统一 52）。
+    再之后起：若音符带谱面点标记 dot（u1/u2/d1），八度由标记唯一确定，
+    不再走贪心；无标记才回落到贪心（目标中心 52）。
     """
     out, pv = [], 52
     for c in score:
         if c["rest"] or not c["pcs"]:
             out.append(([], []))
             continue
-        tc = 52
-        min_m, max_m = (48, 74) if c["harm"] else (40, 67)
-        best = min(
-            (m for m in range(min_m, max_m + 1) if m % 12 == c["pcs"][0]),
-            key=lambda m: abs(m - pv) * 0.85 + max(0, abs(m - tc) - 7) * 0.55,
-        )
-        ms = [best]
-        for p in c["pcs"][1:]:
-            dd = (c["pcs"][0] - p + 12) % 12 or 12
-            ms.append(best - dd)
-        pv = best
-        eff = [min(79, m + 12) if c["harm"] else m for m in ms]
+        dot = c.get("dot", "")
+        zone = None
+        if dot in ("u1", "u2", "d1"):
+            k = 0
+            if dot.startswith("u"):
+                nd = int(dot[1:]) if dot[1:].isdigit() else 0
+                k = max(0, nd - 1) if c["harm"] else nd
+            # d1（下方 1 个点）与无点音同处低音区，k 保持 0
+            zone = (48 + k * 12, 59 + k * 12)
+        ms = []
+        if zone:
+            for pc in c["pcs"]:
+                pick = next((m for m in range(zone[0], zone[1] + 1) if m % 12 == pc), None)
+                if pick is None:
+                    pick = next(m for m in range(48, 72) if m % 12 == pc)
+                ms.append(pick)
+        else:
+            tc = 52
+            min_m, max_m = (48, 74) if c["harm"] else (40, 67)
+            best = min(
+                (m for m in range(min_m, max_m + 1) if m % 12 == c["pcs"][0]),
+                key=lambda m: abs(m - pv) * 0.85 + max(0, abs(m - tc) - 7) * 0.55,
+            )
+            ms = [best]
+            for p in c["pcs"][1:]:
+                dd = (c["pcs"][0] - p + 12) % 12 or 12
+                ms.append(best - dd)
+        # pv 必须每个音都更新（模板里是 pv = best.m，在 forEach 末尾统一执行）。
+        # 早前只在无标记分支更新，导致 dot 标记的音不推进 pv，
+        # 下一个无标记音用了陈旧的 pv，与模板产生分歧。
+        pv = ms[0]
+        eff = [min(83, m + 12) if c["harm"] else m for m in ms]
         # 模板 HUD 现在显示实际发声音高，故 hud 与 eff 相同
         out.append((eff, eff))
     return out
@@ -80,7 +102,7 @@ def page_midis(score):
 
 # ---------------------------------------------------------------- 谱面
 def load_score(page=None, spec=None, tonic=None):
-    """返回 [{'row','ni','p','pcs','d','rest','harm','bpm'}...]"""
+    """返回 [{'row','ni','p','pcs','d','rest','harm','dot','bpm'}...]"""
     if page:
         txt = open(page, encoding="utf-8").read()
         m = re.search(r"const CELLS\s*=\s*(\[.*?\]);", txt, re.S)
@@ -91,6 +113,7 @@ def load_score(page=None, spec=None, tonic=None):
         bpms = [r.get("bpm", 60) for r in json.loads(mr.group(1))] if mr else []
         return [dict(row=c["r"] + 1, ni=c["ni"] + 1, p=c.get("p", []), pcs=c.get("pcs", []),
                      d=c.get("d", 1), rest=bool(c.get("rest")), harm=bool(c.get("harm")),
+                     dot=c.get("dot", ""),
                      bpm=bpms[c["r"]] if c["r"] < len(bpms) else 60) for c in cells]
     sp = json.load(open(spec, encoding="utf-8"))
     t = TONIC[tonic or sp.get("tonic", "C")]
@@ -101,7 +124,8 @@ def load_score(page=None, spec=None, tonic=None):
             pcs = [] if n.get("rest") else [
                 (t + DEG[x[-1]] + (1 if x.startswith("#") else -1 if x.startswith("b") else 0)) % 12 for x in p]
             out.append(dict(row=ri + 1, ni=ni + 1, p=p, pcs=pcs, d=n.get("d", 1),
-                            rest=bool(n.get("rest")), harm=bool(n.get("harm")), bpm=r.get("bpm", 60)))
+                            rest=bool(n.get("rest")), harm=bool(n.get("harm")),
+                            dot=n.get("dot", ""), bpm=r.get("bpm", 60)))
     return out
 
 

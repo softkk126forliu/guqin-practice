@@ -556,27 +556,59 @@ refreshLabels();
 const MIDI = [];
 {
   let pv = 52;
+  // 谱面八度点标记 → 规划 MIDI 所在的一个八度区间。
+  // dot: u1=数字上方1个实心点, u2=上方2个, d1=下方1个。
+  // 上方点数决定八度区；泛音的发声由合成器另行 +12，故其规划区间下移一个八度。
+  // 数字下方的点不改变八度（谱面读数：下点音与无点音同处低音区）。
+  const dotZone = (dot, harm) => {
+    if (!dot) return null;
+    // 只接受已知的标记形式；非法值回落到贪心，避免推出越界的八度区间。
+    if (dot !== "u1" && dot !== "u2" && dot !== "d1") return null;
+    let k = 0;
+    if (dot[0] === "u") {
+      const nd = parseInt(dot.slice(1), 10) || 0;
+      k = harm ? Math.max(0, nd - 1) : nd;
+    }
+    // d1（下方 1 个点）与无点音同处低音区，k 保持 0。
+    // 同样走确定路径，避免被 pv 锚定带偏（排 6 音 13 即因此被贪心锁在高八度）。
+    return [48 + k * 12, 59 + k * 12];
+  };
   CELLS.forEach(c => {
     if (c.rest || !c.pcs.length) { MIDI.push([]); return; }
-    // 八度规划的目标中心。
-    // 谱面（行图 row_N.png）实测：泛音段数字上方标 1 个实心点，散按段无点或
-    // 下方标 1 个点，两者的规划 MIDI 都落在 48-59（E3=52 附近）；泛音的发声
-    // 由合成器另行 +12 到 60-71。因此规划值层面两者共用同一中心 52。
-    const targetCenter = 52;
-    const minM = c.harm ? 48 : 40;
-    const maxM = c.harm ? 74 : 67;
+    const zone = dotZone(c.dot, c.harm);
     let best = null;
-    for (let m = minM; m <= maxM; m++) {
-      if (((m % 12) + 12) % 12 === c.pcs[0]) {
-        const d = Math.abs(m - pv) * 0.85 + Math.max(0, Math.abs(m - targetCenter) - 7) * 0.55;
-        if (best === null || d < best.d) best = { m, d };
+    if (zone) {
+      // 有谱面点标记：八度唯一确定，无需猜测
+      for (let m = zone[0]; m <= zone[1]; m++) {
+        if (((m % 12) + 12) % 12 === c.pcs[0]) { best = { m, d: 0 }; break; }
       }
     }
-    const ms = [best.m];
-    for (let k = 1; k < c.pcs.length; k++) {
-      let dd = (c.pcs[0] - c.pcs[k] + 12) % 12;
-      if (dd === 0) dd = 12;
-      ms.push(best.m - dd);
+    if (!best) {
+      // 无点标记：回落到贪心规划，目标中心 E3=52
+      const targetCenter = 52;
+      const minM = c.harm ? 48 : 40;
+      const maxM = c.harm ? 74 : 67;
+      for (let m = minM; m <= maxM; m++) {
+        if (((m % 12) + 12) % 12 === c.pcs[0]) {
+          const d = Math.abs(m - pv) * 0.85 + Math.max(0, Math.abs(m - targetCenter) - 7) * 0.55;
+          if (best === null || d < best.d) best = { m, d };
+        }
+      }
+    }
+    const ms = [];
+    for (let k = 0; k < c.pcs.length; k++) {
+      if (zone) {
+        // 撮的每个音按各自音级在同一区间内取值
+        for (let m = zone[0]; m <= zone[1]; m++) {
+          if (((m % 12) + 12) % 12 === c.pcs[k]) { ms.push(m); break; }
+        }
+      } else if (k === 0) {
+        ms.push(best.m);
+      } else {
+        let dd = (c.pcs[0] - c.pcs[k] + 12) % 12;
+        if (dd === 0) dd = 12;
+        ms.push(best.m - dd);
+      }
     }
     MIDI.push(ms);
     pv = best.m;
@@ -590,7 +622,9 @@ function midiName(m) {
 // 实际发声的 MIDI：泛音统一上移一个八度并限幅，与 buildKSBuffer 保持一致。
 // HUD 显示必须用它，否则泛音段显示的音高会比真实发声音低八度。
 function effMidiOf(midi, isHarm) {
-  return isHarm ? Math.min(79, midi + 12) : midi;
+  // 上限 83（B5）：泛音规划值可达 71，加上八度后为 83。原上限 79 会把
+  // A5/Bb5 截成 G5，导致音级错误（实测 4 个音受影响）。
+  return isHarm ? Math.min(83, midi + 12) : midi;
 }
 
 /* ---------- 3. 状态与领奏放大窗渲染 ---------- */
