@@ -558,10 +558,11 @@ const MIDI = [];
   let pv = 52;
   CELLS.forEach(c => {
     if (c.rest || !c.pcs.length) { MIDI.push([]); return; }
-    // 目标中心按古琴实际音区分：泛音在徽位、落在中音区（空弦 38-47 + 徽位 5-12，
-    // 中心约 E3=52）；散按可按到徽位以上，常用中高音区（中心约 E4=62）。
-    // 原先泛音取 60 / 散按取 52 恰好相反，实测会把整段散按音压低一个八度。
-    const targetCenter = c.harm ? 52 : 62;
+    // 八度规划的目标中心。
+    // 谱面（行图 row_N.png）实测：泛音段数字上方标 1 个实心点，散按段无点或
+    // 下方标 1 个点，两者的规划 MIDI 都落在 48-59（E3=52 附近）；泛音的发声
+    // 由合成器另行 +12 到 60-71。因此规划值层面两者共用同一中心 52。
+    const targetCenter = 52;
     const minM = c.harm ? 48 : 40;
     const maxM = c.harm ? 74 : 67;
     let best = null;
