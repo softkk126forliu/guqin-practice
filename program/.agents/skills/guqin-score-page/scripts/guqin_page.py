@@ -508,6 +508,8 @@ def build_cells_and_rows(spec, ims):
                 "d": n["d"],
                 "rest": rest,
                 "harm": harm,
+                # 谱面八度点标记：u1=上方1个实心点 u2=上方2个 d1=下方1个
+                "dot": ("" if rest else str(n.get("dot", "") or "")),
             })
     return rows_meta, cells
 

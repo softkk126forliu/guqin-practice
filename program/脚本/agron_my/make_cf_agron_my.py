@@ -154,6 +154,11 @@ def is_harmonic_cf(ri, ni):
 
 b64_rows = json.load(open(os.path.join(OUT_DIR, "my_cf_rows_b64.json"), encoding="utf-8"))
 
+# 谱面八度点标记（dot）取自 spec，与主路径 guqin_page.py 保持一致。
+# 行/音序号与 rows_cells_exact 一一对应。
+_spec = json.load(open(os.path.join(CF_DIR, "chunfeng-p1-spec.json"), encoding="utf-8"))
+_dots = [[n.get("dot", "") or "" for n in r["notes"]] for r in _spec["rows"]]
+
 rows_meta = []
 cells = []
 for ri, r_notes in enumerate(rows_cells_exact):
@@ -180,6 +185,7 @@ for ri, r_notes in enumerate(rows_cells_exact):
             "d": n["d"],
             "rest": rest,
             "harm": harm,
+            "dot": ("" if rest else _dots[ri][ni]),
         })
 
 out_html = (html_tpl
