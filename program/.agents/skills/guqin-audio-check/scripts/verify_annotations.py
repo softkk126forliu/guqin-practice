@@ -37,85 +37,53 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 NM = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
-PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
-MAJ = [0, 2, 4, 5, 7, 9, 11]
 
 VALID_DOT = {"u1", "u2", "d1"}
-VALID_SHIFT = {0, -1, -2}
+VALID_SHIFT = {-1, 0, 1}
 VALID_HUI = set("一二三四五六七八九十") | {"十一", "十二", "十三"}
-
-# 古琴合理音域（MIDI）：空弦区 / 中音区 / 泛音区
-RANGE_LOW = (24, 47)     # 一二三四弦空弦附近
-RANGE_MID = (48, 71)     # 五六七八九十徽区
-RANGE_HIGH = (72, 84)    # 高泛音区
-
-
-def midi_of(name):
-    """'C4' -> 60；'+' 复合值返回 None"""
-    if not name:
-        return None
-    m = re.match(r"^([A-G][#b]?)(-?\d+)$", str(name).strip())
-    if not m:
-        return None
-    return PC[m.group(1)[0]] + {"#": 1, "b": -1, "": 0}[m.group(1)[1:]] + (int(m.group(2)) + 1) * 12
 
 
 def midi_name(m):
     return "%s%d" % (NM[m % 12], m // 12 - 1)
 
 
-def pcs_of(note, tonic):
-    """spec note -> 音级列表（pitch class）"""
-    p = note.get("p")
-    if p is None:
-        return []
-    if isinstance(p, str):
-        p = [x for x in p.split("/") if x.strip()]
-    out = []
-    for tok in p:
-        tok = str(tok).strip()
-        d = re.sub(r"[^1-7]", "", tok)
-        if not d:
-            continue
-        acc = sum(1 for c in tok if c == "#") - sum(1 for c in tok if c in "b")
-        out.append((tonic + MAJ[int(d) - 1] + acc) % 12)
-    return out
 
+def expect_zones(note):
+    """按 spec 标注推出该音各声部应落的 MIDI 区间。
 
-def expect_zone(note, tonic):
-    """按 spec 标注推出该音应落在的 MIDI 区间。
-
-    返回 (lo, hi, 依据说明) 或 None（无标注，无法判定）
+    返回 (zones, why)：zones 是与音数等长的 [(lo,hi), ...]；无标注时 zones 为 None。
 
     规则（与 page.template.html 的 dotZone / octZone 一致，但独立实现，
     用于交叉验证模板是否正确消费了字段）：
         dot=u1 → 规划 [60,71]；u2 → [72,83]；d1 → [48,59]
         泛音发声 = 规划 + 12，故泛音的期望区间要相应下移一个八度
-        oct_shift=0 → [48,59]；-1 → [36,47]；-2 → [24,35]
+        oct_shift=0 → [48,59]；+1 → [60,71]；-1 → [36,47]
+        标量 = 各声部同区；数组 = 每声部各自的偏移（异八度撮）
     """
     harm = bool(note.get("harm"))
     dot = (note.get("dot") or "").strip()
     shift = note.get("oct_shift")
+    n = len(note.get("pcs") or []) or 1
 
     if dot in VALID_DOT:
         if dot.startswith("u"):
-            n = int(dot[1:])
-            k = max(0, n - 1) if harm else n
+            k = max(0, int(dot[1:]) - 1) if harm else int(dot[1:])
         else:                       # d1 与无点音同处低音区
             k = 0
-        # 返回规划值区间（泛音已由 k-1 处理，不再额外减八度）
         lo, hi = 48 + k * 12, 59 + k * 12
-        return lo, hi, "dot=%s%s" % (dot, "/泛音" if harm else "")
-    if shift is not None:
-        try:
-            k = int(shift)
-        except (TypeError, ValueError):
-            return None
-        if k not in VALID_SHIFT:
-            return None
-        lo, hi = 48 + k * 12, 59 + k * 12
-        return lo, hi, "oct_shift=%d" % k
-    return None
+        return [(lo, hi)] * n, "dot=%s%s" % (dot, "/泛音" if harm else "")
+    if shift is None:
+        return None, "无标注"
+    arr = list(shift) if isinstance(shift, (list, tuple)) else [shift] * n
+    if len(arr) != n:
+        return None, "oct_shift 长度 %d != 音数 %d" % (len(arr), n)
+    try:
+        ks = [int(k) for k in arr]
+    except (TypeError, ValueError):
+        return None, "oct_shift 含非整数值"
+    if any(k not in VALID_SHIFT for k in ks):
+        return None, "oct_shift 含非法偏移 %s" % ks
+    return [(48 + k * 12, 59 + k * 12) for k in ks], "oct_shift=%s" % ks
 
 
 def page_sounds_from_html(path):
@@ -196,16 +164,26 @@ def main():
                 bad += 1
             sh = n.get("oct_shift")
             if sh is not None:
-                try:
-                    k = int(sh)
-                except (TypeError, ValueError):
-                    print("  ✗ 排%d音%d oct_shift=%r 不是整数" % (ri, ni, sh))
+                npcs = len(n.get("p") or [])
+                if isinstance(sh, (list, tuple)):
+                    arr = list(sh)
+                else:
+                    arr = [sh] * max(npcs, 1)   # 标量 = 各声部同区
+                if npcs and len(arr) != npcs:
+                    print("  ✗ 排%d音%d oct_shift 长度 %d ≠ 音数 %d"
+                          % (ri, ni, len(arr), npcs))
                     bad += 1
-                    continue
-                if k not in VALID_SHIFT:
-                    print("  ✗ 排%d音%d oct_shift=%d 不在允许集合 %s"
-                          % (ri, ni, k, sorted(VALID_SHIFT)))
-                    bad += 1
+                for k in arr:
+                    try:
+                        ki = int(k)
+                    except (TypeError, ValueError):
+                        print("  ✗ 排%d音%d oct_shift=%r 不是整数" % (ri, ni, k))
+                        bad += 1
+                        continue
+                    if ki not in VALID_SHIFT:
+                        print("  ✗ 排%d音%d oct_shift=%d 不在允许集合 %s"
+                              % (ri, ni, ki, sorted(VALID_SHIFT)))
+                        bad += 1
             hui = n.get("hui")
             if hui not in (None, ""):
                 hs = str(hui).strip()
@@ -245,22 +223,25 @@ def main():
                     continue
             # 按 (排, 音序) 取原 note
             raw = rows[c["row"] - 1]["notes"][c["ni"] - 1]
-            z = expect_zone(raw, tonic)
-            if z is None:
+            zs, why = expect_zones(raw)
+            if zs is None:
                 continue
-            lo, hi, why = z
             checked += 1
-            eff = c["eff"][0] if c["eff"] else None
-            if eff is None:
+            eff = c["eff"]
+            if not eff:
                 continue
             # 泛音：产物里的 eff 已是发声值；期望区是规划值 → 比较时 +12
-            cmp_lo, cmp_hi = lo, hi
-            if raw.get("harm"):
-                cmp_lo, cmp_hi = lo + 12, hi + 12
-            if not (cmp_lo <= eff <= cmp_hi):
+            bad_one = False
+            for k, (lo, hi) in enumerate(zs):
+                cmp_lo, cmp_hi = (lo + 12, hi + 12) if raw.get("harm") else (lo, hi)
+                if k >= len(eff):
+                    continue
+                if not (cmp_lo <= eff[k] <= cmp_hi):
+                    bad_one = True
+                    mism_list.append((c["row"], c["ni"], "/".join(str(x) for x in c["p"]),
+                                      "%s[%d]" % (why, k), cmp_lo, cmp_hi, eff[k]))
+            if bad_one:
                 mismatch += 1
-                mism_list.append((c["row"], c["ni"], "/".join(str(x) for x in c["p"]),
-                                  why, cmp_lo, cmp_hi, eff))
         print("  可校验 %d 个音，不符 %d 个" % (checked, mismatch))
         for row, ni, p, why, lo, hi, eff in mism_list[:20]:
             print("    排%d音%-3d %-8s [%s] 期望 %d-%d，实际 %s"
