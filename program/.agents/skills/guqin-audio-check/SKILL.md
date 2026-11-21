@@ -11,6 +11,8 @@ description: 判断古琴跟谱页（单文件 HTML 或 spec JSON）里的逐音
 |---|---|
 | `audio_score_check.py` | 主程序：自动对齐、逐音判定，输出 `.md` / `.csv` / `.json` 报告 |
 | `pitch_track.py` | 逐帧打印某段录音的候选音高（带八度），人工复核"可疑/不一致"时用 |
+| `check_sync.py` | 从模板真实提取八度规划代码块用 node 执行，与 `page_midis()` 逐音对账（改模板后必跑）|
+| `verify_annotations.py` | 标注质量校验：覆盖率 / 字段合法性 / 内部一致性 / 录音交叉校验 |
 
 ## 1. 准备
 
