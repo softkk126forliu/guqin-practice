@@ -136,8 +136,37 @@ def main():
         sys_exit("找不到 %s —— 先跑 crop_rows.py" % png)
     digits, points, lines, circles, sb = analyze(png, a.simp_bottom)
 
+    # --- 越界检查：下界之外若还有点状构件，可能是被裁掉的记号 ---
+    # 简谱区下界在不同排并不统一（实测：排3/4/8/9 用 160 即可，排2 的记号落在 y=188），
+    # 所以这里不自动放宽，而是主动报出来 —— 宁可多提示，也不要静默漏检。
+    warn = []
+    if a.simp_bottom is None:
+        im0 = Image.open(png).convert("RGB")
+        rgb0 = np.array(im0)
+        R0, G0, B0 = rgb0[:, :, 0].astype(int), rgb0[:, :, 1].astype(int), rgb0[:, :, 2].astype(int)
+        ink0 = (R0 < 140) & (G0 < 140) & (B0 < 140) & \
+               (abs(R0 - G0) < 30) & (abs(G0 - B0) < 30) & (abs(R0 - B0) < 30)
+        lab0, n0 = ndimage.label(ink0)
+        for i, sl in enumerate(ndimage.find_objects(lab0), 1):
+            y0, y1, x0, x1 = sl[0].start, sl[0].stop, sl[1].start, sl[1].stop
+            if y0 < sb:
+                continue
+            m = (lab0[sl] == i)
+            area = int(m.sum())
+            h, w = y1 - y0, x1 - x0
+            if int(ndimage.binary_fill_holes(m).sum() - area) > 0:
+                continue
+            if max(h, w) <= 24 and area >= 35:
+                warn.append((x0, y0, w, h, area))
+
     print("=== 排 %d  简谱区 y<%d | 数字 %d / 实心点 %d / 横线 %d / 空心圈 %d ===" % (
         a.row, sb, len(digits), len(points), len(lines), len(circles)))
+    if warn:
+        print()
+        print("⚠ 下界之外还检出 %d 个点状构件，可能有记号被裁掉：" % len(warn))
+        for x0, y0, w, h, area in sorted(warn, key=lambda t: t[0])[:12]:
+            print("    (%d,%d) %dx%d 面积=%d" % (x0, y0, w, h, area))
+        print("  若这些是数字上下的八度记号，请调大 --simp-bottom 重跑本排（勿凭印象判读）。")
     print()
     print("--- 记号全局序列（按 x 排序）---")
     stream = []
