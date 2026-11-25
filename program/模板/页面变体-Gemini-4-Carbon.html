@@ -1611,7 +1611,10 @@ function buildKSBuffer(midi, isHarm) {
   const L = (fs * dur) | 0;
   const P = fs / f;
   const N = Math.max(2, Math.floor(P - 0.5));
-  const dl = P - N - 0.5;
+  // 分数延迟固定为半采样：原实现取 P-N-0.5（即 fs/f 的小数部分），
+  // 使谐振系数 C 在 0.123~0.997 之间随音高乱跳 —— 某些音几乎无阻尼（驻波嗡鸣），
+  // 某些音强阻尼（一出即逝）。固定半采样后 C 恒定，且取整误差被正确补偿，基频反而更准。
+  const dl = 0.5;
   const C = (1 - dl) / (1 + dl);
   const ring = new Float32Array(N);
 
@@ -1623,7 +1626,14 @@ function buildKSBuffer(midi, isHarm) {
   }
 
   const out = new Float32Array(L);
-  const g = isHarm ? 0.9968 : (effMidi < 48 ? 0.9972 : effMidi < 58 ? 0.9962 : 0.9946);
+  // 衰减系数：原实现的 g 按「每延迟线周期」取值却乘在每个采样上，
+  // 导致每秒衰减 1e-54 ~ 1e-104（数学上瞬间归零），实际全靠后面的一阶谐振器硬撑，
+  // 表现为同一音区内不同音的余音时长相差几十倍（高音区几乎听不见）。
+  // 现改为：先按目标余音时长与频率算出「每周期」应衰减多少，再换算为每采样系数。
+  // T60 = 衰减到峰值 10%（-60dB）的秒数；散音余音长、泛音衰减快。
+  const T60 = isHarm ? 2.0 : 4.5;
+  const gCycle = Math.pow(0.001, 1 / (T60 * f));
+  const g = Math.pow(gCycle, 1 / N);
   let p = 0, prev = 0, ax = 0, ay = 0;
   for (let n = 0; n < L; n++) {
     const cur = ring[p];
