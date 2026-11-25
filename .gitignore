@@ -5,11 +5,29 @@
 # 的技术栈不匹配，入库会导致评审提出大量无效意见。故只留本地。
 copilot-instructions.md
 
-# 模板/ 与 春风/ 的产出物纳入版本管理：
-#   模板/   —— 书页原图、spec、两份定稿模板 HTML
-#   春风/   —— spec、行图、标尺图、成品 HTML、PDF 琴谱、示范音频
+# 模板/ 的产出物纳入版本管理：
+#   模板/   —— 书页原图、spec、页面变体 HTML
 #   模板/out/ 为生成过程中的临时切图，不入库
 program/模板/out/
+
+# 评审与量化工装（不入库）：
+#   依赖 playwright-core + 系统 Chrome，属评审者工具而非产品代码。
+#   换评审者后需重建，见 文档/项目现状与交接索引.md
+node_modules/
+package-lock.json
+audit-shots/
+page_audit.js
+page_smoke.js
+page_overlap.js
+render_full.js
+render_modal.js
+
+# 临时脚本与产物（留在本地不同步）
+*.bak
+_tmp/
+tmp/
+scratch/
+out_*/
 
 Thumbs.db
 Desktop.ini
