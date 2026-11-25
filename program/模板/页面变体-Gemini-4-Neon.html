@@ -21,22 +21,17 @@
   --ink: #1A1917;
   --ink-muted: #59544B;
 
-  /* 演奏状态语义色
-     --cur 当前音：黛蓝（不是红）—— 红色在跟谱语境里天然带「错了」的暗示，
-             而当前音是「该弹的音」，用红色会误导学琴者 */
-  --cur: #24497F;
-  --cur-soft: rgba(36, 73, 127, 0.06);
-  --cur-card-bg: rgba(36, 73, 127, 0.07);
-  --cur-card-bd: rgba(36, 73, 127, 0.24);
+  /* 演奏状态语义色 */
+  --cur: #B93622;
+  --cur-soft: rgba(185, 54, 34, 0.06);
+  --cur-card-bg: rgba(185, 54, 34, 0.07);
+  --cur-card-bd: rgba(185, 54, 34, 0.24);
   --next: #2A5C6B;
   --next-soft: rgba(42, 92, 107, 0.06);
   --ok: #1F6E4A;
   --ok-soft: rgba(31, 110, 74, 0.12);
   --warn: #A8530E;
   --warn-soft: rgba(168, 83, 14, 0.12);
-  /* --err 错误态专用（绛红）：当前音已改黛蓝，红色只留给「出错」 */
-  --err: #A3392E;
-  --err-soft: rgba(163, 57, 46, 0.10);
   --listen: #2A5C6B;
   --focus: #1D4ED8;
 
@@ -68,18 +63,16 @@
   --ink: #EAE7E1;
   --ink-muted: #A09B92;
 
-  --cur: #8EB5F0;
-  --cur-soft: rgba(142, 181, 240, 0.10);
-  --cur-card-bg: rgba(142, 181, 240, 0.12);
-  --cur-card-bd: rgba(142, 181, 240, 0.34);
+  --cur: #F26D5B;
+  --cur-soft: rgba(242, 109, 91, 0.10);
+  --cur-card-bg: rgba(242, 109, 91, 0.12);
+  --cur-card-bd: rgba(242, 109, 91, 0.34);
   --next: #5EB4C9;
   --next-soft: rgba(94, 180, 201, 0.10);
   --ok: #46C98B;
   --ok-soft: rgba(70, 201, 139, 0.15);
   --warn: #F2A344;
   --warn-soft: rgba(242, 163, 68, 0.16);
-  --err: #F2897C;
-  --err-soft: rgba(242, 137, 124, 0.14);
   --listen: #5EB4C9;
   --focus: #60A5FA;
 
@@ -380,9 +373,9 @@ button.ok {
 }
 
 #lensCanvas {
-  width: 100%;
+  width: min(56vw, 640px);
   max-width: 100%;
-  height: 117px;
+  height: 100px;
   border-radius: 10px;
   border: 1px solid var(--paper-border);
   background: var(--paper);
@@ -446,17 +439,10 @@ button.ok {
   background: linear-gradient(90deg, var(--paper-border), transparent);
 }
 
-/* 音位框：零遮挡笔画 + 冷色下一音虚线预判 + 非颜色状态冗余
-   —— 上下各留 8px 缝隙，标记只画在缝隙里。
-   定位：top = 缝隙上沿（border-top 画在缝隙里），
-        height = 缝隙上沿 + 图片高 + 缝隙下沿（border-bottom 画在缝隙里），
-        box-sizing: border-box 保证 border 不内侵图片区。 */
 .rw {
   position: relative;
   margin: 0 0 6px;
   border-radius: 4px;
-  padding: var(--mk-gap-top, 8px) 0 var(--mk-gap-bot, 8px);
-  box-sizing: content-box;
 }
 .rw img {
   display: block;
@@ -471,12 +457,11 @@ button.ok {
   filter: invert(0.91) hue-rotate(180deg) contrast(var(--ink-contrast, 1.15));
 }
 
-/* 音位框：top/height 由 JS 按图片实际位置写入（像素值） */
+/* 音位框：外扩 2.5px 零遮挡笔画 + 冷色下一音虚线预判 + 非颜色状态冗余 */
 .mk {
   position: absolute;
-  top: var(--mk-img-top, 8px);
-  height: var(--mk-img-h, auto);
-  box-sizing: border-box;
+  top: 1%;
+  height: 98%;
   border-radius: 5px;
   cursor: pointer;
   transition: background 0.1s, outline-color 0.1s;
@@ -487,46 +472,23 @@ button.ok {
 .mk.done {
   background: transparent;
 }
-/* 当前音：上下两道横线 + 两端短竖脚的「括号」，只画在缝隙里，结构上碰不到墨迹 */
 .mk.cur {
-  background: transparent;
-  outline: none;
-  border-top: 3px solid var(--cur);
-  border-bottom: 3px solid var(--cur);
+  background: var(--cur-soft);
+  outline: 2.5px solid var(--cur);
+  outline-offset: 1px;
+  border-top: 3.5px solid var(--cur);
   z-index: 4;
 }
-.mk.cur::before,
-.mk.cur::after {
-  content: "";
-  position: absolute;
-  width: 3px;
-  height: 8px;
-  background: var(--cur);
-}
-.mk.cur::before { left: 0; top: 0; }
-.mk.cur::after { right: 0; top: 0; }
 /* 极窄十六分音符 (w < 4%) 动态收拢外扩偏移，避免与紧邻音符框碰撞且绝不内侵笔画 */
 .mk.cur.narrow {
   outline-offset: 0px;
 }
-/* 下一音：上下虚线 + 短竖脚（同样只占缝隙） */
 .mk.next {
-  background: transparent;
-  outline: none;
-  border-top: 2px dashed var(--next);
-  border-bottom: 2px dashed var(--next);
+  background: var(--next-soft);
+  outline: 1.5px dashed var(--next);
+  outline-offset: 0px;
   z-index: 3;
 }
-.mk.next::before,
-.mk.next::after {
-  content: "";
-  position: absolute;
-  width: 2px;
-  height: 8px;
-  background: var(--next);
-}
-.mk.next::before { left: 0; top: 0; }
-.mk.next::after { right: 0; top: 0; }
 .mk.warn {
   border-bottom: 3px dotted var(--warn);
 }
@@ -890,17 +852,11 @@ dialog textarea {
     padding: 6px 8px;
     gap: 8px;
   }
-  /* 手机竖屏：领奏条改上下两行（卡片一行、领奏镜一行），
-     让领奏镜真正占满全宽 —— 原两列布局下镜只有 252px，
-     减字谱字在镜里仅 41.8px，读不清指法。 */
   #hud.on {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    grid-template-columns: 112px minmax(0, 1fr);
     align-items: stretch;
   }
-  .hud-card { grid-column: 1; grid-row: 1; }
-  #lensCanvas { grid-column: 1; grid-row: 2; width: 100%; height: 117px; }
   .hud-card {
     min-width: 0;
     max-width: none;
@@ -935,6 +891,10 @@ dialog textarea {
   .hud-meta b { font-size: 12.5px; }
   #hudDur { font-size: 12px; }
   #hudNext { font-size: 12px; }
+  #lensCanvas {
+    width: 100%;
+    height: 88px;
+  }
 
   /* 主谱面满宽，留出最大阅读空间 */
   #sc {
@@ -1191,32 +1151,6 @@ const fmtDur = x => ({0.25:"¼", 0.5:"½", 0.75:"¾", 1:"1", 1.5:"1½", 2:"2", 3
 const paper = $("#paper");
 const rowEls = [], rowLabelEls = [], rowImgs = [], mkEls = [];
 
-/* 写入每排的「图片区」几何量（相对 .rw 的 padding box）
-   —— .mk 的定位要让它的上下横线（border）完全落在 .rw 的 8px 缝隙里：
-        top    = 0（border-top 从 .rw 顶边开始，正好占满上缝隙）
-        height = 缝隙 + 图片高 + 缝隙（border-bottom 落在下缝隙里）
-      .mk 用 box-sizing:border-box，故 border 在盒内，
-      只要 top=0、height 含两端缝隙，横线就压不到任何墨迹。 */
-function syncRowGeometry(ri) {
-  const rw = rowEls[ri];
-  if (!rw) return;
-  const im = rw.querySelector("img");
-  if (!im || !im.naturalHeight) return;
-  const cs = getComputedStyle(rw);
-  const padTop = parseFloat(cs.paddingTop) || 0;
-  const padBot = parseFloat(cs.paddingBottom) || 0;
-  const imgH = im.getBoundingClientRect().height;
-  if (!imgH) return;
-  rw.style.setProperty("--mk-gap-top", padTop + "px");
-  rw.style.setProperty("--mk-gap-bot", padBot + "px");
-  rw.style.setProperty("--mk-img-top", "0px");
-  // border-box：height 含上下 border，故需加上两端缝隙，横线才落在缝隙内
-  rw.style.setProperty("--mk-img-h", (imgH + padTop + padBot) + "px");
-}
-function syncAllRowGeometry() {
-  for (let i = 0; i < rowEls.length; i++) syncRowGeometry(i);
-}
-
 IMGS.forEach((b64, ri) => {
   const rl = document.createElement("div");
   rl.className = "rl";
@@ -1229,13 +1163,7 @@ IMGS.forEach((b64, ri) => {
   im.decoding = "async";
   const mime = b64.startsWith("iVBOR") ? "image/png" : "image/jpeg";
   im.src = `data:${mime};base64,` + b64;
-  im.onload = () => {
-    // 图片加载完成 → 写入该排的「图片区」几何，供 .mk 的 top/height 使用
-    syncRowGeometry(ri);
-    // 检测该排简谱/减字谱分界，供领奏镜画框时只框减字谱区
-    detectRowSplit(ri);
-    if (CELLS[idx] && CELLS[idx].r === ri) drawLens();
-  };
+  im.onload = () => { if (CELLS[idx] && CELLS[idx].r === ri) drawLens(); };
   rw.appendChild(im);
   paper.appendChild(rw);
   rowEls.push(rw);
@@ -1402,10 +1330,8 @@ function drawLens() {
   const theme = document.documentElement.dataset.theme || "xuan";
   const isDark = theme === "dark";
   const paperBg = isDark ? "#17191C" : (theme === "white" ? "#FFFFFF" : "#FAF8F3");
-  // 颜色从 CSS 变量读取，避免 CSS 与 JS 两处分叉
-  const rootCS = getComputedStyle(document.documentElement);
-  const curColor = (rootCS.getPropertyValue("--cur") || "").trim() || (isDark ? "#8EB5F0" : "#24497F");
-  const nextColor = (rootCS.getPropertyValue("--next") || "").trim() || (isDark ? "#5EB4C9" : "#2A5C6B");
+  const curColor = isDark ? "#F26D5B" : "#B93622";
+  const nextColor = isDark ? "#5EB4C9" : "#2A5C6B";
 
   g.fillStyle = paperBg;
   g.fillRect(0, 0, cv.width, cv.height);
@@ -1428,10 +1354,7 @@ function drawLens() {
   g.drawImage(im, x0, 0, viewW, srcH, 0, dy, cv.width, dh);
   g.restore();
 
-  // 画当前音（黛蓝实线）与下一音（冷黛青虚线）
-  // 只框「减字谱区」—— 简谱数字在镜左侧的信息卡里已用大字显示，
-  // 不必在镜里重复框住（框住反而压住笔画）。
-  // 每排的简谱/减字谱分界不固定，用自动检测的结果（rowSplit）。
+  // 画当前音（暖朱砂实线外框）与下一音（冷黛青虚线预判框）
   [nextI, idx].forEach(k => {
     if (k < 0 || k >= CELLS.length) return;
     const cell = CELLS[k];
@@ -1439,13 +1362,11 @@ function drawLens() {
     const rx = (cell.x / 100 * srcW - x0) * scale;
     const rw = (cell.w / 100 * srcW) * scale;
     if (rx + rw < 0 || rx > cv.width) return;
-    // 减字谱区在行图中的纵向范围（自动检测，见 detectRowSplit）
-    const sp = rowSplit[c.r] || { top: 0.02, bottom: 0.98 };
-    const ry = dy + srcH * sp.top * scale;
-    const rh = srcH * (sp.bottom - sp.top) * scale;
+    const ry = dy + srcH * 0.02 * scale;
+    const rh = srcH * 0.96 * scale;
     g.save();
     if (k === idx) {
-      g.fillStyle = isDark ? "rgba(142, 181, 240, 0.10)" : "rgba(36, 73, 127, 0.07)";
+      g.fillStyle = isDark ? "rgba(242, 109, 91, 0.10)" : "rgba(185, 54, 34, 0.07)";
       g.fillRect(rx, ry, rw, rh);
       g.strokeStyle = curColor;
       g.lineWidth = 2.5 * dp;
@@ -1458,59 +1379,6 @@ function drawLens() {
     }
     g.restore();
   });
-}
-
-/* 自动检测每排「简谱行 / 减字谱行」的分界比例。
-   做法：逐行统计墨迹密度 —— 简谱是稀疏的数字行（有明显空隙），
-   减字谱是密集的汉字行。取「密度由低转高」的那条界。
-   结果缓存在 rowSplit，drawLens 直接用。 */
-const rowSplit = [];
-function detectRowSplit(ri) {
-  const im = rowImgs[ri];
-  if (!im || !im.complete || !im.naturalWidth) return null;
-  const srcW = im.naturalWidth, srcH = im.naturalHeight;
-  const cv = document.createElement("canvas");
-  // 分辨率要够：缩到 280px 宽时排 9 只有 35 行高，两层谱挤在一起、
-  // 空隙被采样噪声填掉。用 700px 宽保证纵向有足够行数。
-  const W = 700;
-  const H = Math.max(1, Math.round(srcH * W / srcW));
-  cv.width = W; cv.height = H;
-  const g = cv.getContext("2d", { willReadFrequently: true });
-  g.drawImage(im, 0, 0, W, H);
-  let data;
-  try { data = g.getImageData(0, 0, W, H).data; } catch (e) { return null; }
-
-  // 逐行求「最长连续墨迹段」
-  //   简谱数字是细竖笔，最长连续段只有 2~15px；
-  //   减字谱汉字有横笔，能连成 25~90px。
-  // 这个差异在 15 排上都很稳定，是可靠判据。
-  const maxRun = [];
-  for (let y = 0; y < H; y++) {
-    let run = 0, best = 0;
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      const ink = data[i] < 150 && data[i + 1] < 150 && data[i + 2] < 150;
-      if (ink) { run++; if (run > best) best = run; }
-      else run = 0;
-    }
-    maxRun.push(best);
-  }
-  // 减字谱行：最长连续段 ≥ 22（汉字横笔）；简谱行远低于此
-  const TH = 22;
-  let firstZi = -1, lastZi = -1;
-  for (let y = 0; y < H; y++) {
-    if (maxRun[y] >= TH) { if (firstZi < 0) firstZi = y; lastZi = y; }
-  }
-  let split;
-  if (firstZi >= 0) {
-    split = firstZi / H;
-  } else {
-    // 兜底：没检出汉字带 → 取中点
-    split = 0.42;
-  }
-  const res = { top: Math.max(0, split - 0.015), bottom: 0.99 };
-  rowSplit[ri] = res;
-  return res;
 }
 
 function updateUI(scroll = true) {
@@ -2043,11 +1911,7 @@ $("#themeBtn").onclick = () => {
 
 $("#immBtn").onclick = () => { setDrawer(false); document.body.classList.add("imm"); };
 $("#immExitBtn").onclick = () => document.body.classList.remove("imm");
-window.addEventListener("resize", () => {
-  // 视口变化 → 谱图宽度变 → 图片高度变 → .mk 定位量需重算 → 再重绘镜
-  syncAllRowGeometry();
-  drawLens();
-});
+window.addEventListener("resize", drawLens);
 
 window.addEventListener("keydown", e => {
   if ($("#durDlg").open) return;
